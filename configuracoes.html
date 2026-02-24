@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .settings-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:24px; }
+    .settings-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); }
+    .settings-row:last-child { border-bottom:none; }
+    .settings-row-info { flex:1; }
+    .settings-row-label { font-size:14px; font-weight:600; color:var(--text-1); }
+    .settings-row-desc { font-size:12.5px; color:var(--text-3); margin-top:2px; }
+    .user-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .user-row:last-child { border-bottom:none; }
+    .permission-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .perm-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-sm); font-size:12.5px; color:var(--text-2); }
+    .perm-item i { font-size:12px; }
+    .perm-item.granted i { color:var(--success); }
+    .perm-item.denied i { color:var(--danger); }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Configurações do Sistema</div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary btn-sm" onclick="Utils.toast('Configurações salvas!','success')">
+        <i class="fa-solid fa-save"></i> Salvar Alterações
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <div class="settings-layout">
+
+      <!-- Nav lateral -->
+      <div>
+        <div class="settings-nav" id="settings-nav">
+          <div class="settings-nav-item active" data-tab="users"><i class="fa-solid fa-users"></i> Usuários</div>
+          <div class="settings-nav-item" data-tab="roles"><i class="fa-solid fa-shield-halved"></i> Níveis de Acesso</div>
+          <div class="settings-nav-item" data-tab="approval"><i class="fa-solid fa-clipboard-check"></i> Aprovações</div>
+          <div class="settings-nav-item" data-tab="plans"><i class="fa-solid fa-wifi"></i> Catálogo de Planos</div>
+          <div class="settings-nav-item" data-tab="notifications"><i class="fa-solid fa-bell"></i> Notificações</div>
+          <div class="settings-nav-item" data-tab="system"><i class="fa-solid fa-gear"></i> Sistema</div>
+        </div>
+      </div>
+
+      <!-- Conteúdo -->
+      <div id="settings-content"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo Usuário -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="user-modal-title">Novo Usuário</span>
+      <button class="modal-close" onclick="Utils.modal('modal-user').close()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Nome Completo <span class="req">*</span></label>
+          <input class="form-control" id="nu-name" placeholder="Nome do usuário">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail <span class="req">*</span></label>
+          <input type="email" class="form-control" id="nu-email" placeholder="email@conecta.com.br">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Perfil de Acesso <span class="req">*</span></label>
+          <select class="form-control" id="nu-role">
+            <option value="vendedor">Vendedor</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="gestor">Gestor</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cor de Avatar</label>
+          <div style="display:flex;gap:6px;margin-top:4px;" id="color-picker">
+            ${['#2563EB','#7C3AED','#059669','#D97706','#DC2626','#0284C7','#EA580C'].map(c=>`
+              <div onclick="selectColor('${c}')" style="width:24px;height:24px;background:${c};border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s;" data-color="${c}"></div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Utils.modal('modal-user').close()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUser()">
+        <i class="fa-solid fa-check"></i> Criar Usuário
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const user = initPage();
+let selectedColor = '#2563EB';
+
+function selectColor(c) {
+  selectedColor = c;
+  document.querySelectorAll('[data-color]').forEach(el => {
+    el.style.borderColor = el.dataset.color === c ? '#0F172A' : 'transparent';
+    el.style.transform = el.dataset.color === c ? 'scale(1.2)' : 'scale(1)';
+  });
+}
+selectColor('#2563EB');
+
+// Tabs
+document.querySelectorAll('.settings-nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    renderTab(item.dataset.tab);
+  });
+});
+
+function renderTab(tab) {
+  const content = document.getElementById('settings-content');
+  switch(tab) {
+    case 'users':      renderUsers(content); break;
+    case 'roles':      renderRoles(content); break;
+    case 'approval':   renderApprovalSettings(content); break;
+    case 'plans':      renderPlansConfig(content); break;
+    case 'notifications': renderNotifications(content); break;
+    case 'system':     renderSystem(content); break;
+  }
+}
+
+function renderUsers(el) {
+  const roleColor = { admin:'level-admin', gestor:'level-gestor', supervisor:'level-supervisor', vendedor:'level-vendedor' };
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <div class="settings-section-title">Usuários do Sistema</div>
+          <div class="settings-section-sub">${Auth.users.length} usuários cadastrados</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="Utils.modal('modal-user').open()">
+          <i class="fa-solid fa-plus"></i> Novo Usuário
+        </button>
+      </div>
+      ${Auth.users.map(u => `
+        <div class="user-row">
+          <div class="avatar avatar-md" style="background:${u.color};">${u.initials}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:var(--text-1);">${u.name}</div>
+            <div style="font-size:12.5px;color:var(--text-3);">${u.email}</div>
+          </div>
+          <span class="level-badge ${roleColor[u.role]||''}">${Auth.roleLabels[u.role]}</span>
+          <div style="display:flex;gap:4px;margin-left:12px;">
+            <button class="btn btn-ghost btn-icon btn-xs" onclick="Utils.toast('Editando ${u.name.split(' ')[0]}...','info')">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            ${u.id !== user.id ? `
+              <button class="btn btn-ghost btn-icon btn-xs" onclick="toggleUserActive('${u.id}')" title="Ativar/Desativar">
+                <i class="fa-solid fa-toggle-on" style="color:var(--success);"></i>
+              </button>
+            ` : '<span style="font-size:11px;color:var(--blue-500);padding:0 6px;">Você</span>'}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function renderRoles(el) {
+  const roles = [
+    { key:'admin', label:'Administrador', desc:'Acesso total ao sistema, pode criar usuários e alterar configurações.', icon:'fa-crown', color:'#D97706',
+      perms: ['Ver tudo','Criar usuários','Aprovar qualquer solicitação','Acessar relatórios completos','Configurar sistema','Gerenciar planos','Ver dados financeiros'] },
+    { key:'gestor', label:'Gestor Comercial', desc:'Gerencia a equipe de vendas, aprova solicitações e visualiza todos os relatórios.', icon:'fa-briefcase', color:'#1D4ED8',
+      perms: ['Ver toda a equipe','Aprovar/recusar solicitações','Definir metas','Ver relatórios completos','Exportar dados','Gerenciar funil da equipe'] },
+    { key:'supervisor', label:'Supervisor', desc:'Acompanha a equipe sob sua gestão, pode aprovar solicitações de baixo impacto.', icon:'fa-users-gear', color:'#7C3AED',
+      perms: ['Ver equipe própria','Aprovar desconto até 10%','Ver relatórios básicos','Criar negócios','Gerenciar clientes próprios'] },
+    { key:'vendedor', label:'Vendedor', desc:'Cria negócios, cadastra clientes e envia solicitações ao gestor.', icon:'fa-headset', color:'#059669',
+      perms: ['Ver próprios clientes','Criar negócios próprios','Cadastrar clientes','Enviar solicitações de aprovação','Ver metas próprias'] },
+  ];
+
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div class="settings-section-title" style="margin-bottom:6px;">Níveis de Acesso</div>
+      <div class="settings-section-sub">Configure as permissões de cada perfil de usuário.</div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px;">
+        ${roles.map(r=>`
+          <div style="border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;">
+            <div style="background:var(--surface-2);padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);">
+              <i class="fa-solid ${r.icon}" style="color:${r.color};font-size:16px;"></i>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:700;">${r.label}</div>
+                <div style="font-size:12px;color:var(--text-3);">${r.desc}</div>
+              </div>
+              <span style="font-size:11px;color:var(--text-4);">${Auth.users.filter(u=>u.role===r.key).length} usuário(s)</span>
+            </div>
+            <div style="padding:12px 16px;">
+              <div class="permission-grid">
+                ${r.perms.map(p=>`
+                  <div class="perm-item granted">
+                    <i class="fa-solid fa-check-circle"></i> ${p}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function renderApprovalSettings(el) {
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div class="settings-section-title">Configurações de Aprovação</div>
+      <div class="settings-section-sub">Defina os limites e comportamentos do fluxo de aprovações.</div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Aprovação automática até</div>
+          <div class="settings-row-desc">Descontos abaixo deste percentual são aprovados automaticamente pelo sistema.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" class="form-control" value="5" min="0" max="20" style="width:80px;text-align:center;"> %
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Notificar gestor imediatamente</div>
+          <div class="settings-row-desc">Enviar notificação ao gestor a cada nova solicitação pendente.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Limite de desconto — Supervisor</div>
+          <div class="settings-row-desc">Percentual máximo que supervisores podem aprovar sem enviar ao gestor.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" class="form-control" value="10" min="0" max="30" style="width:80px;text-align:center;"> %
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">SLA de resposta</div>
+          <div class="settings-row-desc">Prazo máximo (em horas) para resposta de solicitações antes de alertar.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" class="form-control" value="24" min="1" max="72" style="width:80px;text-align:center;"> h
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Exigir comentário ao recusar</div>
+          <div class="settings-row-desc">Obrigar o gestor a inserir justificativa ao recusar uma solicitação.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Aprovações Requerem 2 Níveis</div>
+          <div class="settings-row-desc">Para descontos acima de 25%, exigir aprovação do gestor E do admin.</div>
+        </div>
+        <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+      </div>
+    </div>`;
+}
+
+function renderPlansConfig(el) {
+  const allPlans = [...Plans.fiber, ...Plans.mobile, ...Plans.b2b];
+  const typeLabel = { fiber:'Fibra', mobile:'Móvel', b2b:'Empresarial B2B' };
+  const typeClass = { fiber:'product-internet', mobile:'product-mobile', b2b:'product-b2b' };
+
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <div class="settings-section-title">Catálogo de Planos</div>
+          <div class="settings-section-sub">${allPlans.length} planos cadastrados</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="Utils.toast('Em desenvolvimento: adicionar planos','info')">
+          <i class="fa-solid fa-plus"></i> Novo Plano
+        </button>
+      </div>
+      <div class="table-wrap" style="border-radius:var(--r-md);border:1px solid var(--border);">
+        <table>
+          <thead><tr><th>Plano</th><th>Tipo</th><th>Velocidade</th><th>Preço/mês</th><th class="td-center">Ações</th></tr></thead>
+          <tbody>
+            ${allPlans.map(p=>`
+              <tr>
+                <td style="font-size:13.5px;font-weight:600;">${p.name}</td>
+                <td><span class="product-tag ${typeClass[p.type]}">${typeLabel[p.type]}</span></td>
+                <td class="mono">${p.speed}${p.type==='mobile'?'GB':'Mbps'}</td>
+                <td class="mono" style="font-weight:700;color:var(--success);">${Utils.currency(p.price)}</td>
+                <td class="td-center">
+                  <button class="btn btn-ghost btn-icon btn-xs" onclick="Utils.toast('Editando plano...','info')">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderNotifications(el) {
+  const notifs = [
+    { label:'Nova solicitação de aprovação', desc:'Notificar quando um vendedor enviar uma solicitação.', checked:true },
+    { label:'Negócio fechado', desc:'Notificar ao fechar um negócio no funil.', checked:true },
+    { label:'Meta atingida', desc:'Notificar quando um vendedor atingir 100% da meta.', checked:true },
+    { label:'Fatura vencida', desc:'Alertar quando uma fatura ficar em atraso.', checked:true },
+    { label:'Resumo diário', desc:'Enviar resumo de atividades por e-mail às 8h.', checked:false },
+    { label:'Novo lead no funil', desc:'Notificar ao adicionar um novo lead.', checked:false },
+    { label:'SLA de aprovação expirado', desc:'Alertar quando uma aprovação passar do SLA configurado.', checked:true },
+  ];
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div class="settings-section-title">Notificações</div>
+      <div class="settings-section-sub">Escolha quais eventos geram notificações no sistema.</div>
+      ${notifs.map(n=>`
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">${n.label}</div>
+            <div class="settings-row-desc">${n.desc}</div>
+          </div>
+          <label class="toggle"><input type="checkbox" ${n.checked?'checked':''}><span class="toggle-slider"></span></label>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function renderSystem(el) {
+  el.innerHTML = `
+    <div class="settings-panel">
+      <div class="settings-section-title">Sistema & Empresa</div>
+      <div class="settings-section-sub">Configurações gerais do sistema.</div>
+
+      <div class="form-row cols-2 mt-16">
+        <div class="form-group">
+          <label class="form-label">Nome da Empresa</label>
+          <input class="form-control" value="Conecta Telecom">
+        </div>
+        <div class="form-group">
+          <label class="form-label">CNPJ da Empresa</label>
+          <input class="form-control" value="12.345.678/0001-99" class="mono">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Fuso Horário</label>
+          <select class="form-control">
+            <option selected>América/São_Paulo (UTC-3)</option>
+            <option>América/Manaus (UTC-4)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Moeda</label>
+          <select class="form-control">
+            <option selected>BRL — Real Brasileiro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Dados & Segurança</div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Modo Demonstração</div>
+          <div class="settings-row-desc">Exibir aviso de "dados simulados" para todos os usuários.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row-info">
+          <div class="settings-row-label">Sessão automática</div>
+          <div class="settings-row-desc">Desconectar usuários inativas após 8 horas.</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="mt-24" style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="Utils.toast('Backup iniciado...','info')">
+          <i class="fa-solid fa-database"></i> Exportar Backup
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="Utils.toast('Esta ação limparia todos os dados simulados.','warning')">
+          <i class="fa-solid fa-trash"></i> Limpar Dados Demo
+        </button>
+      </div>
+    </div>`;
+}
+
+function toggleUserActive(userId) {
+  Utils.toast('Status do usuário alterado.','info');
+}
+
+function saveUser() {
+  const name = document.getElementById('nu-name').value.trim();
+  const email = document.getElementById('nu-email').value.trim();
+  const role = document.getElementById('nu-role').value;
+  if (!name || !email) { Utils.toast('Preencha nome e e-mail','error'); return; }
+
+  const parts = name.trim().split(' ');
+  const initials = (parts[0][0]+(parts[parts.length-1][0]||'')).toUpperCase();
+  Auth.users.push({ id:'u'+Date.now(), name, initials, role, email, color: selectedColor });
+  Utils.modal('modal-user').close();
+  renderTab('users');
+  Utils.toast(`Usuário ${name.split(' ')[0]} criado com sucesso!`,'success');
+}
+
+// Init
+renderTab('users');
+</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metas & Comissões — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .seller-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--shadow-sm); }
+    .seller-panel-header { background:var(--surface-2); padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+    .seller-panel-body { padding:16px 18px; }
+    .goal-row { padding:10px 0; border-bottom:1px solid var(--border); }
+    .goal-row:last-child { border-bottom:none; }
+    .goal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .goal-name { font-size:13px; font-weight:600; color:var(--text-1); }
+    .commission-box { background:linear-gradient(135deg,#1E3A8A,#2563EB); color:#fff; border-radius:var(--r-md); padding:14px 16px; margin-top:14px; }
+    .commission-label { font-size:11px; opacity:.75; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    .commission-val { font-size:22px; font-weight:800; font-family:var(--font-mono); }
+    .commission-sub { font-size:11px; opacity:.7; margin-top:3px; }
+    .team-bar { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .team-bar:last-child { border-bottom:none; }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Metas & Comissões <span>Fevereiro / 2025</span></div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="Utils.modal('modal-new-goal').open()">
+        <i class="fa-solid fa-plus"></i> Nova Meta
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <div class="kpi-grid mb-24" id="team-kpis"></div>
+
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Atingimento do Time — Histórico</span>
+        </div>
+        <div class="card-body" id="team-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Mix de Produtos Fechados</span>
+        </div>
+        <div class="card-body" id="product-mix"></div>
+      </div>
+    </div>
+
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px;">Metas por Vendedor</div>
+    <div class="grid-3" id="sellers-grid"></div>
+  </div>
+</div>
+
+<!-- Modal Nova Meta -->
+<div class="modal-overlay" id="modal-new-goal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Definir Nova Meta</span>
+      <button class="modal-close" onclick="Utils.modal('modal-new-goal').close()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Vendedor</label>
+          <select class="form-control" id="ng-seller"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de Meta</label>
+          <select class="form-control" id="ng-type">
+            <option value="Receita Nova">Receita Nova (R$)</option>
+            <option value="Contratos Fibra">Contratos Fibra</option>
+            <option value="Contratos Móvel">Contratos Móvel</option>
+            <option value="NPS">NPS</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Meta <span class="req">*</span></label>
+          <input type="number" class="form-control" id="ng-target" placeholder="Ex: 8000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Período</label>
+          <input type="month" class="form-control" id="ng-period" value="2025-02">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Utils.modal('modal-new-goal').close()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveGoal()"><i class="fa-solid fa-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const user = initPage();
+const sellers = Auth.users.filter(u => u.role === 'vendedor');
+document.getElementById('ng-seller').innerHTML = sellers.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+
+function renderAll() {
+  // KPIs
+  const totalTarget  = Goals.current.filter(g=>g.name==='Receita Nova').reduce((s,g)=>s+g.target,0);
+  const totalCurrent = Goals.current.filter(g=>g.name==='Receita Nova').reduce((s,g)=>s+g.current,0);
+  const pct = Math.round(totalCurrent/totalTarget*100);
+  const closed = Deals.list.filter(d=>d.column==='fechado').length;
+  const pipeline = Deals.list.filter(d=>!['fechado','perdido'].includes(d.column)).reduce((s,d)=>s+d.value,0);
+
+  document.getElementById('team-kpis').innerHTML = [
+    { icon:'fa-bullseye',   color:'blue',   label:'Meta de Receita',    val: Utils.currency(totalTarget,true),   delta:`${pct}% atingido`,   dir: pct>=80?'up':'neutral' },
+    { icon:'fa-chart-line', color:'green',  label:'Receita Real Mês',   val: Utils.currency(totalCurrent,true),  delta:`Falta ${Utils.currency(totalTarget-totalCurrent,true)}`, dir:'neutral' },
+    { icon:'fa-trophy',     color:'orange', label:'Contratos Fechados', val: closed,                             delta:'Meta: 15',            dir:'neutral' },
+    { icon:'fa-filter',     color:'purple', label:'Pipeline Ativo',     val: Utils.currency(pipeline,true),      delta:`${Deals.list.filter(d=>!['fechado','perdido'].includes(d.column)).length} neg.`, dir:'neutral' },
+  ].map(k=>`
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-top">
+        <div class="kpi-icon ${k.color}"><i class="fa-solid ${k.icon}"></i></div>
+        <span class="kpi-delta ${k.dir}">${k.delta}</span>
+      </div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`).join('');
+
+  // Team chart
+  const max = Math.max(...Goals.team.map(d=>Math.max(d.target,d.achieved)));
+  document.getElementById('team-chart').innerHTML = Goals.team.map(m=>{
+    const tPct = Math.round(m.target/max*100);
+    const aPct = Math.round(m.achieved/max*100);
+    const ok = m.achieved>=m.target;
+    return `<div class="team-bar">
+      <span style="min-width:46px;font-size:11px;color:var(--text-3);">${m.month}</span>
+      <div style="flex:1;position:relative;height:18px;">
+        <div style="position:absolute;top:0;left:0;height:100%;width:${tPct}%;background:var(--border-2);border-radius:3px;"></div>
+        <div style="position:absolute;top:0;left:0;height:100%;width:${aPct}%;background:${ok?'var(--success)':'var(--blue-500)'};border-radius:3px;opacity:.85;"></div>
+      </div>
+      <span style="min-width:62px;font-size:11px;font-family:var(--font-mono);font-weight:700;color:${ok?'var(--success)':'var(--text-1)'};text-align:right;">${Utils.currency(m.achieved,true)}</span>
+    </div>`;
+  }).join('');
+
+  // Product mix
+  const wonDeals = Deals.list.filter(d=>d.column==='fechado');
+  const mix = [
+    { name:'Fibra Residencial', plans:['f200','f400','f1g'], color:'#2563EB' },
+    { name:'Internet B2B',      plans:['b500','b1g','b10g'], color:'#D97706' },
+    { name:'Linha Móvel',       plans:['m15','m40','m100'],  color:'#059669' },
+  ].map(p=>({ ...p, count: wonDeals.filter(d=>p.plans.includes(d.planId)).length, val: wonDeals.filter(d=>p.plans.includes(d.planId)).reduce((s,d)=>s+d.value,0) }));
+  const maxMix = Math.max(...mix.map(d=>d.val), 1);
+  document.getElementById('product-mix').innerHTML = mix.map(d=>`
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:13px;font-weight:600;">${d.name}</span>
+        <span style="font-size:12px;color:var(--text-3);">${d.count} contrato${d.count!==1?'s':''}</span>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${d.color};width:${Math.round(d.val/maxMix*100)}%;"></div></div>
+        <span class="progress-val">${Utils.currency(d.val,true)}</span>
+      </div>
+    </div>`).join('');
+
+  // Sellers
+  const toShow = user.role==='vendedor' ? sellers.filter(s=>s.id===user.id) : sellers;
+  document.getElementById('sellers-grid').innerHTML = toShow.map(seller=>{
+    const myGoals = Goals.current.filter(g=>g.seller===seller.id);
+    const revGoal = myGoals.find(g=>g.name==='Receita Nova');
+    const pctSeller = revGoal ? Math.min(Math.round(revGoal.current/revGoal.target*100),100) : 0;
+    const rate = pctSeller>=100?4:pctSeller>=80?3:2;
+    const commission = (revGoal?.current||0)*rate/100;
+    return `
+    <div class="seller-panel">
+      <div class="seller-panel-header">
+        <div class="avatar avatar-md" style="background:${seller.color};">${seller.initials}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">${seller.name}</div>
+          <div style="font-size:12px;color:var(--text-3);">Vendedor · Comissão ${rate}%</div>
+        </div>
+        <span class="badge ${pctSeller>=100?'badge-success':pctSeller>=80?'badge-blue':'badge-warning'}">${pctSeller}%</span>
+      </div>
+      <div class="seller-panel-body">
+        ${myGoals.map(g=>{
+          const gp = Math.min(Math.round(g.current/g.target*100),100);
+          const bc = gp>=100?'var(--success)':gp>=80?'var(--blue-500)':'var(--warning)';
+          return `<div class="goal-row">
+            <div class="goal-header">
+              <span class="goal-name">${g.name}</span>
+              <span style="font-size:12px;color:var(--text-3);">${g.unit==='R$'?Utils.currency(g.current,true):g.current} / ${g.unit==='R$'?Utils.currency(g.target,true):g.target+' '+g.unit}</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${bc};width:${gp}%;"></div></div>
+              <span class="progress-val" style="color:${bc};">${gp}%</span>
+            </div>
+          </div>`;
+        }).join('')}
+        <div class="commission-box">
+          <div class="commission-label">Comissão Estimada — ${rate}% sobre receita nova</div>
+          <div class="commission-val">${Utils.currency(commission)}</div>
+          <div class="commission-sub">Base: ${revGoal?Utils.currency(revGoal.current,true):'R$ 0'} · Fev/2025</div>
+        </div>
+        ${Auth.isManagerOrAbove()?`<button class="btn btn-outline btn-sm full mt-12" onclick="document.getElementById('ng-seller').value='${seller.id}';Utils.modal('modal-new-goal').open()"><i class="fa-solid fa-pen"></i> Ajustar Meta</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveGoal() {
+  const sid = document.getElementById('ng-seller').value;
+  const type = document.getElementById('ng-type').value;
+  const target = parseFloat(document.getElementById('ng-target').value);
+  if (!target||target<=0){Utils.toast('Informe um valor válido','error');return;}
+  const ex = Goals.current.find(g=>g.seller===sid&&g.name===type);
+  if(ex){ex.target=target;Utils.toast('Meta atualizada!','success');}
+  else{Goals.current.push({id:'g'+Date.now(),seller:sid,name:type,target,current:0,unit:type==='Receita Nova'?'R$':'contr',period:'Fev/2025',color:'#2563EB'});Utils.toast('Meta criada!','success');}
+  Utils.modal('modal-new-goal').close();
+  renderAll();
+}
+
+renderAll();
+</script>
+</body>
+</html>

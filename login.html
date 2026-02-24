@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display: block; }
+    .login-page { min-height: 100vh; display: flex; }
+    .demo-note {
+      background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px;
+      padding: 10px 14px; font-size: 12.5px; color: #92400E;
+      display: flex; align-items: flex-start; gap: 8px; margin-bottom: 20px;
+    }
+    .demo-note i { flex-shrink: 0; margin-top: 1px; color: #D97706; }
+    .login-divider { display: flex; align-items: center; gap: 10px; margin: 20px 0; }
+    .login-divider::before,.login-divider::after { content:''; flex:1; height:1px; background: var(--border); }
+    .login-divider span { font-size: 12px; color: var(--text-4); white-space: nowrap; }
+    .login-footer { text-align: center; margin-top: 24px; font-size: 12px; color: var(--text-4); }
+  </style>
+</head>
+<body>
+<div class="login-page">
+
+  <!-- Painel Esquerdo -->
+  <div class="login-left">
+    <div class="login-branding">
+      <div class="logo-big"><i class="fa-solid fa-network-wired" style="color:#60A5FA;font-size:48px;"></i></div>
+      <h1>Conecta CRM</h1>
+      <p>Plataforma completa de gestão comercial para provedores de Fibra, Internet e Linha Móvel</p>
+    </div>
+
+    <div class="login-features">
+      <div class="login-feature">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>Pipeline de vendas com aprovação gerencial</span>
+      </div>
+      <div class="login-feature">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Controle de acesso por perfil (Gestor · Vendedor · Admin)</span>
+      </div>
+      <div class="login-feature">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Metas, comissões e relatórios em tempo real</span>
+      </div>
+      <div class="login-feature">
+        <i class="fa-solid fa-bolt"></i>
+        <span>Solicitações de desconto com fluxo de aprovação</span>
+      </div>
+      <div class="login-feature">
+        <i class="fa-solid fa-building"></i>
+        <span>Consulta CNPJ integrada (Receita Federal)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel Direito -->
+  <div class="login-right">
+    <div class="login-form-wrap">
+      <h2 class="login-title">Bem-vindo de volta</h2>
+      <p class="login-subtitle">Selecione seu perfil para entrar no ambiente de demonstração</p>
+
+      <div class="demo-note">
+        <i class="fa-solid fa-flask"></i>
+        <span><strong>Modo Demonstração</strong> — Todos os dados são simulados. Selecione o perfil desejado para explorar as funcionalidades correspondentes.</span>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <label class="form-label" style="margin-bottom: 8px; display: block;">Perfil de acesso</label>
+        <div class="role-selector" id="role-selector">
+          <div class="role-btn active" data-user="u2">
+            <i class="fa-solid fa-briefcase" style="color: #1D4ED8;"></i>
+            <span>Gestor</span>
+          </div>
+          <div class="role-btn" data-user="u4">
+            <i class="fa-solid fa-headset" style="color: #059669;"></i>
+            <span>Vendedor</span>
+          </div>
+          <div class="role-btn" data-user="u3">
+            <i class="fa-solid fa-users-gear" style="color: #7C3AED;"></i>
+            <span>Supervisor</span>
+          </div>
+          <div class="role-btn" data-user="u1">
+            <i class="fa-solid fa-crown" style="color: #D97706;"></i>
+            <span>Admin</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview do usuário selecionado -->
+      <div id="user-preview" style="
+        display:flex; align-items:center; gap: 12px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 10px; padding: 12px 14px; margin-bottom: 20px;
+      ">
+        <div id="preview-avatar" class="avatar avatar-md" style="background: #1D4ED8;">FB</div>
+        <div>
+          <div id="preview-name" style="font-size: 14px; font-weight: 600; color: var(--text-1);">Fernanda Borges</div>
+          <div style="font-size: 12px; color: var(--text-3); display:flex; align-items:center; gap: 6px;">
+            <span id="preview-email">fernanda@conecta.com.br</span>
+            <span class="level-badge level-gestor" id="preview-role-badge">Gestor</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label">Senha</label>
+        <div class="input-with-icon">
+          <i class="fa-solid fa-lock input-icon"></i>
+          <input type="password" class="form-control" value="demo1234" placeholder="Senha" id="pass-input">
+        </div>
+        <div class="form-hint"><i class="fa-solid fa-circle-info" style="margin-right:3px;"></i>Senha padrão da demo: <strong>demo1234</strong></div>
+      </div>
+
+      <button class="btn btn-primary full" style="padding:12px; font-size:15px;" id="btn-login">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar
+      </button>
+
+      <div class="login-divider"><span>Acesso rápido por perfil</span></div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <button class="btn btn-outline btn-sm full quick-login" data-user="u2">
+          <i class="fa-solid fa-briefcase" style="color:#1D4ED8;"></i> Entrar como Gestor (Fernanda)
+        </button>
+        <button class="btn btn-outline btn-sm full quick-login" data-user="u4">
+          <i class="fa-solid fa-headset" style="color:#059669;"></i> Entrar como Vendedor (Ana Paula)
+        </button>
+        <button class="btn btn-outline btn-sm full quick-login" data-user="u1">
+          <i class="fa-solid fa-crown" style="color:#D97706;"></i> Entrar como Admin (Ricardo)
+        </button>
+      </div>
+
+      <div class="login-footer">
+        Conecta CRM v2.0 · Demonstração Comercial<br>
+        <span style="color: var(--blue-600); cursor:pointer;">conecta.com.br</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+  let selectedUser = 'u2';
+
+  const roleClasses = { admin: 'level-admin', gestor: 'level-gestor', supervisor: 'level-supervisor', vendedor: 'level-vendedor' };
+
+  function selectUser(userId) {
+    selectedUser = userId;
+    const user = Auth.users.find(u => u.id === userId);
+    if (!user) return;
+
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.user === userId));
+    document.getElementById('preview-avatar').textContent = user.initials;
+    document.getElementById('preview-avatar').style.background = user.color;
+    document.getElementById('preview-name').textContent = user.name;
+    document.getElementById('preview-email').textContent = user.email;
+    const badge = document.getElementById('preview-role-badge');
+    badge.textContent = Auth.roleLabels[user.role];
+    badge.className = 'level-badge ' + (roleClasses[user.role] || '');
+  }
+
+  document.querySelectorAll('[data-user]').forEach(btn => {
+    btn.addEventListener('click', () => selectUser(btn.dataset.user));
+  });
+
+  function doLogin(userId) {
+    const pass = document.getElementById('pass-input').value;
+    if (pass !== 'demo1234') {
+      Utils.toast('Senha incorreta. Use: demo1234', 'error');
+      return;
+    }
+    Auth.login(userId || selectedUser);
+    window.location.href = 'index.html';
+  }
+
+  document.getElementById('btn-login').addEventListener('click', () => doLogin());
+  document.querySelectorAll('.quick-login').forEach(btn => {
+    btn.addEventListener('click', () => doLogin(btn.dataset.user));
+  });
+
+  document.getElementById('pass-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>

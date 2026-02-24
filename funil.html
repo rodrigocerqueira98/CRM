@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Funil de Vendas — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .page-content { padding: 0 24px 24px; }
+    .pipeline-topbar { padding: 16px 0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid var(--border); margin-bottom:16px; }
+    .pipeline-meta { font-size:13px; color:var(--text-3); }
+    .pipeline-meta strong { color:var(--text-1); }
+    .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; }
+    .kanban-col-wrap { flex-shrink:0; width:270px; display:flex; flex-direction:column; }
+    .col-header-stripe { height:3px; border-radius:3px 3px 0 0; }
+    .col-header { background:var(--surface); border:1px solid var(--border); border-top:none; padding:10px 14px; display:flex; align-items:center; gap:8px; }
+    .col-total { font-size:11px; color:var(--text-3); font-family:var(--font-mono); margin-left:auto; }
+    .col-body { background:var(--hover); border:1px solid var(--border); border-top:none; border-radius:0 0 var(--r-md) var(--r-md); padding:8px; flex:1; min-height:120px; transition:background .15s; }
+    .col-body.drag-over { background: #DBEAFE; border-color: var(--blue-500); }
+    .k-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:12px 13px; margin-bottom:8px; cursor:grab; box-shadow:var(--shadow-xs); transition:var(--t); }
+    .k-card:hover { box-shadow:var(--shadow-md); border-color:var(--border-2); transform:translateY(-1px); }
+    .k-card.dragging { opacity:.4; cursor:grabbing; }
+    .k-card-title { font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:3px; }
+    .k-card-company { font-size:11.5px; color:var(--text-3); margin-bottom:8px; display:flex; align-items:center; gap:4px; }
+    .k-card-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .k-card-value { font-size:13px; font-weight:700; color:var(--success); font-family:var(--font-mono); }
+    .k-card-prob { font-size:11px; font-weight:600; padding:2px 6px; border-radius:var(--r-full); }
+    .k-card-owner { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text-3); }
+    .k-card-actions { display:flex; gap:4px; opacity:0; transition:opacity .15s; }
+    .k-card:hover .k-card-actions { opacity:1; }
+    .k-action-btn { width:22px; height:22px; border-radius:3px; background:var(--hover); color:var(--text-3); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:10px; transition:var(--t); }
+    .k-action-btn:hover { background:var(--blue-50); color:var(--blue-600); }
+    .col-add-btn { width:100%; margin-top:6px; padding:8px; background:transparent; border:1.5px dashed var(--border-2); border-radius:var(--r-md); color:var(--text-4); font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer; transition:var(--t); }
+    .col-add-btn:hover { border-color:var(--blue-500); color:var(--blue-600); background:var(--blue-50); }
+    .ghost-card { background:var(--blue-50); border:2px dashed var(--blue-300,#93C5FD); border-radius:var(--r-md); height:60px; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Funil de Vendas</div>
+    <div class="topbar-actions">
+      <select class="filter-select" id="filter-seller" onchange="renderBoard()">
+        <option value="">Todos os vendedores</option>
+      </select>
+      <button class="btn btn-primary" onclick="openNewDeal()">
+        <i class="fa-solid fa-plus"></i> Novo Negócio
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+    <div class="pipeline-topbar">
+      <span class="pipeline-meta">Pipeline total: <strong id="pipeline-total">R$ 0</strong></span>
+      <span class="pipeline-meta" style="margin-left:8px;">Negócios ativos: <strong id="pipeline-count">0</strong></span>
+      <span class="pipeline-meta" style="margin-left:8px;">Ticket médio: <strong id="pipeline-avg">R$ 0</strong></span>
+      <span class="pipeline-meta" style="margin-left:auto;">Última atualização: <strong>agora</strong></span>
+    </div>
+
+    <div class="kanban-board" id="kanban-board"></div>
+  </div>
+</div>
+
+<!-- Modal Novo/Editar Negócio -->
+<div class="modal-overlay" id="modal-deal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="deal-modal-title">Novo Negócio</span>
+      <button class="modal-close" onclick="Utils.modal('modal-deal').close()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Título do Negócio <span class="req">*</span></label>
+          <input class="form-control" id="d-title" placeholder="Ex: Empresa XYZ — Fibra 1G">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Empresa / Cliente</label>
+          <input class="form-control" id="d-company" placeholder="Nome da empresa">
+        </div>
+      </div>
+      <div class="form-row cols-3">
+        <div class="form-group">
+          <label class="form-label">Plano</label>
+          <select class="form-control" id="d-plan"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estágio</label>
+          <select class="form-control" id="d-stage"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Probabilidade (%)</label>
+          <input type="number" class="form-control" id="d-prob" min="0" max="100" value="50">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Telefone</label>
+          <input class="form-control" id="d-phone" placeholder="(11) 90000-0000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsável</label>
+          <select class="form-control" id="d-seller"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <textarea class="form-control" id="d-note" rows="3" placeholder="Contexto do negócio, decisores, próximas ações..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Utils.modal('modal-deal').close()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveDeal()">
+        <i class="fa-solid fa-save"></i> Salvar Negócio
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalhes -->
+<div class="modal-overlay" id="modal-deal-detail">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="detail-title">Detalhes</span>
+      <button class="modal-close" onclick="Utils.modal('modal-deal-detail').close()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Utils.modal('modal-deal-detail').close()">Fechar</button>
+      <button class="btn btn-warning" id="btn-req-discount" onclick="openDiscountRequest()">
+        <i class="fa-solid fa-percent"></i> Solicitar Desconto
+      </button>
+      <button class="btn btn-primary" id="btn-edit-deal" onclick="editCurrentDeal()">
+        <i class="fa-solid fa-pen"></i> Editar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const user = initPage();
+let editingDealId = null;
+let detailDealId = null;
+let dragId = null;
+let ghostEl = null;
+
+// Preenche selects
+function populateSelects() {
+  const allPlans = [...Plans.fiber, ...Plans.mobile, ...Plans.b2b];
+  document.getElementById('d-plan').innerHTML =
+    allPlans.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} — ${Utils.currency(p.price)}/mês</option>`).join('');
+
+  document.getElementById('d-stage').innerHTML =
+    Deals.columns.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+
+  const sellers = Auth.users.filter(u => u.role === 'vendedor');
+  document.getElementById('d-seller').innerHTML =
+    sellers.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+
+  const selFilter = document.getElementById('filter-seller');
+  selFilter.innerHTML = '<option value="">Todos os vendedores</option>' +
+    sellers.map(u => `<option value="${u.id}">${u.name.split(' ')[0]}</option>`).join('');
+}
+populateSelects();
+
+// Stats pipeline
+function updateStats() {
+  const active = Deals.list.filter(d => !['fechado','perdido'].includes(d.column));
+  const total = active.reduce((s,d)=>s+d.value, 0);
+  document.getElementById('pipeline-total').textContent = Utils.currency(total, true);
+  document.getElementById('pipeline-count').textContent = active.length;
+  document.getElementById('pipeline-avg').textContent = active.length ? Utils.currency(Math.round(total/active.length), true) : 'R$ 0';
+}
+
+// Render Board
+function renderBoard() {
+  const filterSeller = document.getElementById('filter-seller').value;
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = '';
+
+  Deals.columns.forEach(col => {
+    let cards = Deals.list.filter(d => d.column === col.id);
+    if (filterSeller) cards = cards.filter(d => d.seller === filterSeller);
+    const colTotal = cards.reduce((s,d)=>s+d.value,0);
+
+    const wrap = Utils.html(`
+      <div class="kanban-col-wrap" data-col="${col.id}">
+        <div class="col-header-stripe" style="background:${col.color};"></div>
+        <div class="col-header">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col.color};flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:700;color:var(--text-1);">${col.title}</span>
+          <span style="min-width:20px;height:20px;background:var(--hover);border-radius:10px;font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;justify-content:center;padding:0 5px;">${cards.length}</span>
+          <span class="col-total">${Utils.currency(colTotal,true)}</span>
+        </div>
+        <div class="col-body" data-col-body="${col.id}"></div>
+        <button class="col-add-btn" onclick="openNewDeal('${col.id}')">
+          <i class="fa-solid fa-plus"></i> Adicionar
+        </button>
+      </div>
+    `);
+
+    const body = Utils.$('.col-body', wrap);
+
+    // Drag & drop
+    body.addEventListener('dragover', e => { e.preventDefault(); body.classList.add('drag-over'); });
+    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
+    body.addEventListener('drop', e => { e.preventDefault(); body.classList.remove('drag-over'); handleDrop(col.id); });
+
+    // Cards
+    cards.forEach(deal => {
+      const seller = Utils.getUserById(deal.seller);
+      const planName = Utils.planName(deal.planId);
+      const probCls = deal.prob >= 70 ? 'background:#D1FAE5;color:#059669;' : deal.prob >= 40 ? 'background:#DBEAFE;color:#1D4ED8;' : 'background:#FEF3C7;color:#D97706;';
+
+      const card = Utils.html(`
+        <div class="k-card" draggable="true" data-deal="${deal.id}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:4px;">
+            <div class="k-card-title">${deal.title}</div>
+            <div class="k-card-actions">
+              <button class="k-action-btn" onclick="openDealDetail('${deal.id}')" title="Detalhes"><i class="fa-solid fa-eye"></i></button>
+              <button class="k-action-btn" onclick="openEditDeal('${deal.id}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
+            </div>
+          </div>
+          <div class="k-card-company"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${deal.company}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:8px;display:flex;align-items:center;gap:4px;">
+            <i class="fa-solid fa-wifi" style="font-size:10px;"></i> ${planName}
+          </div>
+          <div class="k-card-row">
+            <span class="k-card-value">${Utils.currency(deal.value, true)}</span>
+            <span class="k-card-prob" style="${probCls}">${deal.prob}%</span>
+          </div>
+          <div class="k-card-owner mt-8">
+            <div class="avatar avatar-sm" style="background:${seller?.color||'#6366F1'};font-size:9px;">${seller?.initials||'?'}</div>
+            <span>${seller?.name?.split(' ')[0]||'?'}</span>
+          </div>
+        </div>
+      `);
+
+      card.addEventListener('dragstart', () => { dragId = deal.id; card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+
+      body.appendChild(card);
+    });
+
+    board.appendChild(wrap);
+  });
+  updateStats();
+}
+
+function handleDrop(toColId) {
+  if (!dragId) return;
+  const deal = Deals.list.find(d => d.id === dragId);
+  if (!deal || deal.column === toColId) { dragId = null; return; }
+  const fromCol = deal.column;
+  deal.column = toColId;
+  dragId = null;
+  renderBoard();
+  if (toColId === 'fechado') {
+    Utils.toast(`🏆 Negócio fechado: ${deal.title.split('—')[0]} — ${Utils.currency(deal.value, true)}`, 'success', 4000);
+  } else if (toColId === 'perdido') {
+    Utils.toast('Negócio marcado como perdido.', 'warning');
+  } else {
+    Utils.toast(`Movido para "${Deals.columns.find(c=>c.id===toColId)?.title}"`, 'info', 2000);
+  }
+}
+
+// Novo negócio
+function openNewDeal(colId='lead') {
+  editingDealId = null;
+  document.getElementById('deal-modal-title').textContent = 'Novo Negócio';
+  document.getElementById('d-title').value = '';
+  document.getElementById('d-company').value = '';
+  document.getElementById('d-phone').value = '';
+  document.getElementById('d-note').value = '';
+  document.getElementById('d-prob').value = 40;
+  document.getElementById('d-stage').value = colId;
+  const sel = document.getElementById('d-seller');
+  sel.value = user.role === 'vendedor' ? user.id : sel.options[0]?.value;
+  Utils.modal('modal-deal').open();
+  setTimeout(() => document.getElementById('d-title').focus(), 200);
+}
+
+function openEditDeal(dealId) {
+  editingDealId = dealId;
+  const deal = Deals.list.find(d => d.id === dealId);
+  if (!deal) return;
+  document.getElementById('deal-modal-title').textContent = 'Editar Negócio';
+  document.getElementById('d-title').value = deal.title;
+  document.getElementById('d-company').value = deal.company;
+  document.getElementById('d-phone').value = deal.phone || '';
+  document.getElementById('d-note').value = deal.note || '';
+  document.getElementById('d-prob').value = deal.prob;
+  document.getElementById('d-plan').value = deal.planId;
+  document.getElementById('d-stage').value = deal.column;
+  document.getElementById('d-seller').value = deal.seller;
+  Utils.modal('modal-deal').open();
+}
+
+function editCurrentDeal() {
+  Utils.modal('modal-deal-detail').close();
+  openEditDeal(detailDealId);
+}
+
+function saveDeal() {
+  const title = document.getElementById('d-title').value.trim();
+  if (!title) { Utils.toast('Informe o título', 'error'); return; }
+
+  const planSel = document.getElementById('d-plan');
+  const planOpt = planSel.options[planSel.selectedIndex];
+  const price = parseFloat(planOpt?.dataset.price) || 0;
+
+  if (editingDealId) {
+    const deal = Deals.list.find(d => d.id === editingDealId);
+    if (deal) {
+      deal.title = title;
+      deal.company = document.getElementById('d-company').value;
+      deal.phone = document.getElementById('d-phone').value;
+      deal.note = document.getElementById('d-note').value;
+      deal.prob = parseInt(document.getElementById('d-prob').value);
+      deal.planId = document.getElementById('d-plan').value;
+      deal.column = document.getElementById('d-stage').value;
+      deal.seller = document.getElementById('d-seller').value;
+      deal.value = price * 12;
+    }
+    Utils.toast('Negócio atualizado!', 'success');
+  } else {
+    Deals.list.push({
+      id: 'd' + Date.now(),
+      title, company: document.getElementById('d-company').value,
+      column: document.getElementById('d-stage').value,
+      value: price * 12,
+      prob: parseInt(document.getElementById('d-prob').value),
+      planId: document.getElementById('d-plan').value,
+      seller: document.getElementById('d-seller').value,
+      phone: document.getElementById('d-phone').value,
+      note: document.getElementById('d-note').value,
+    });
+    Utils.toast('Novo negócio adicionado!', 'success');
+  }
+  Utils.modal('modal-deal').close();
+  renderBoard();
+}
+
+// Detalhes
+function openDealDetail(dealId) {
+  detailDealId = dealId;
+  const deal = Deals.list.find(d => d.id === dealId);
+  if (!deal) return;
+  const col = Deals.columns.find(c => c.id === deal.column);
+  const seller = Utils.getUserById(deal.seller);
+
+  document.getElementById('detail-title').textContent = deal.title;
+  document.getElementById('detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      ${[
+        { label:'Empresa', val: deal.company },
+        { label:'Plano', val: Utils.planName(deal.planId) },
+        { label:'Valor Contrato', val: Utils.currency(deal.value) },
+        { label:'Probabilidade', val: deal.prob + '%' },
+        { label:'Estágio', val: `<span style="color:${col?.color};font-weight:700;">${col?.title}</span>` },
+        { label:'Responsável', val: `<span style="display:flex;align-items:center;gap:6px;"><div class="avatar avatar-sm" style="background:${seller?.color}">${seller?.initials}</div>${seller?.name}</span>` },
+        { label:'Telefone', val: deal.phone || '—' },
+      ].map(f => `
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:10.5px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">${f.label}</div>
+          <div style="font-size:13.5px;font-weight:600;color:var(--text-1);">${f.val}</div>
+        </div>
+      `).join('')}
+    </div>
+    ${deal.note ? `
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Observações</div>
+        <p style="font-size:13px;color:var(--text-2);line-height:1.6;">${deal.note}</p>
+      </div>
+    ` : ''}
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Mover para Estágio</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${Deals.columns.filter(c => c.id !== deal.column).map(c => `
+          <button onclick="moveDealFromDetail('${dealId}','${c.id}')" style="padding:5px 12px;background:transparent;border:1.5px solid ${c.color};color:${c.color};border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;" onmouseenter="this.style.background='${c.color}';this.style.color='#fff'" onmouseleave="this.style.background='transparent';this.style.color='${c.color}'">
+            ${c.title}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Mostrar botão solicitar desconto apenas para vendedores em negócios não fechados
+  const canReq = !['fechado','perdido'].includes(deal.column);
+  document.getElementById('btn-req-discount').style.display = canReq ? '' : 'none';
+  Utils.modal('modal-deal-detail').open();
+}
+
+function moveDealFromDetail(dealId, toColId) {
+  const deal = Deals.list.find(d => d.id === dealId);
+  if (deal) deal.column = toColId;
+  Utils.modal('modal-deal-detail').close();
+  renderBoard();
+  if (toColId === 'fechado') Utils.toast(`🏆 Negócio fechado! ${Utils.currency(deal.value, true)}`, 'success', 4000);
+}
+
+function openDiscountRequest() {
+  Utils.modal('modal-deal-detail').close();
+  Utils.toast('Redirecionando para criar solicitação...', 'info', 1500);
+  setTimeout(() => { window.location.href = 'solicitacoes.html'; }, 1500);
+}
+
+renderBoard();
+</script>
+</body>
+</html>

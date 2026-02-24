@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .topbar-user { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2); font-weight:500; }
+    .grid-dash { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:16px; }
+    .grid-dash-wide { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+    .chart-bar-row { display:flex; align-items:center; gap: 10px; padding: 7px 0; border-bottom:1px solid var(--border); }
+    .chart-bar-row:last-child { border-bottom: none; }
+    .chart-bar-label { font-size: 12.5px; color: var(--text-2); min-width: 120px; }
+    .chart-bar-val { font-size: 12px; font-weight:700; color:var(--text-1); min-width:60px; text-align:right; font-family:var(--font-mono); }
+    .pending-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .pending-row:last-child { border-bottom:none; }
+    .welcome-banner {
+      background: linear-gradient(135deg, #1E3A8A, #1D4ED8);
+      border-radius: var(--r-lg); padding: 20px 24px; margin-bottom: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      color: #fff;
+    }
+    .welcome-text h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .welcome-text p { font-size: 13px; opacity: .8; }
+    .welcome-stats { display: flex; gap: 24px; }
+    .welcome-stat { text-align: center; }
+    .welcome-stat-val { font-size: 22px; font-weight: 800; font-family: var(--font-mono); }
+    .welcome-stat-label { font-size: 11px; opacity: .75; text-transform: uppercase; letter-spacing: .5px; }
+    .act-icon { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+    .act-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .act-row:last-child { border-bottom:none; }
+    .act-info { flex:1; }
+    .act-text { font-size:13px; color:var(--text-1); font-weight:500; }
+    .act-time { font-size:11.5px; color:var(--text-4); margin-top:1px; }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-title">Dashboard <span id="topbar-date"></span></div>
+    <div class="topbar-actions">
+      <div class="topbar-search">
+        <i class="fa-solid fa-search search-icon"></i>
+        <input type="text" placeholder="Buscar clientes, negócios...">
+      </div>
+      <a href="aprovacoes.html" class="topbar-btn" id="notif-btn" title="Aprovações pendentes" style="display:none;">
+        <i class="fa-solid fa-bell"></i>
+        <span class="dot" id="notif-dot"></span>
+      </a>
+      <div class="topbar-user">
+        <div class="avatar avatar-sm sidebar-user-initial" style="background:#1D4ED8;">FB</div>
+        <span class="sidebar-user-name">Usuário</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo -->
+  <div class="page-content">
+
+    <!-- Banner de boas vindas -->
+    <div class="welcome-banner" id="welcome-banner">
+      <div class="welcome-text">
+        <h2 id="welcome-msg">Bom dia, Fernanda!</h2>
+        <p id="welcome-sub">Você tem 3 aprovações pendentes aguardando sua análise.</p>
+      </div>
+      <div class="welcome-stats" id="welcome-stats"></div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <!-- Linha 2 -->
+    <div class="grid-dash-wide mt-16">
+
+      <!-- Evolução de MRR -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Evolução de MRR <span>últimos 6 meses</span></span>
+          <div class="tabs" style="border:none;background:transparent;padding:0;gap:4px;">
+            <button class="tab-btn active btn-sm" onclick="switchChart('mrr',this)">MRR</button>
+            <button class="tab-btn btn-sm" onclick="switchChart('new',this)">Novos</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding-bottom:8px;">
+          <canvas id="chart-mrr" height="160"></canvas>
+        </div>
+      </div>
+
+      <!-- Funil rápido -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Funil de Vendas</span>
+          <a href="funil.html" class="btn btn-ghost btn-sm"><i class="fa-solid fa-external-link-alt"></i> Ver tudo</a>
+        </div>
+        <div class="card-body" id="funnel-card"></div>
+      </div>
+
+    </div>
+
+    <!-- Linha 3 -->
+    <div class="grid-dash mt-16">
+
+      <!-- Aprovações Pendentes (gestor) / Minhas Solicitações (vendedor) -->
+      <div class="card" id="approval-card">
+        <div class="card-header">
+          <span class="card-title" id="approval-card-title">Aprovações Pendentes</span>
+          <a class="btn btn-ghost btn-sm" id="approval-link" href="aprovacoes.html">Ver todas</a>
+        </div>
+        <div class="card-body" style="padding-top:8px;" id="approval-list"></div>
+      </div>
+
+      <!-- Ranking Vendedores -->
+      <div class="card" id="ranking-card">
+        <div class="card-header">
+          <span class="card-title">Ranking do Mês</span>
+          <a href="metas.html" class="btn btn-ghost btn-sm">Metas</a>
+        </div>
+        <div class="card-body" id="ranking-list"></div>
+      </div>
+
+      <!-- Atividades Recentes -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Atividades Recentes</span>
+          <div class="badge badge-success pulse"><i class="fa-solid fa-circle" style="font-size:7px;"></i> Ao vivo</div>
+        </div>
+        <div class="card-body" id="activity-list"></div>
+      </div>
+
+    </div>
+
+    <!-- Linha 4: Distribuição de produtos -->
+    <div class="grid-2 mt-16">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Distribuição por Produto</span>
+          <span class="badge badge-blue">Fev/2025</span>
+        </div>
+        <div class="card-body" id="product-dist"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Próximos Vencimentos</span>
+          <a href="financeiro.html" class="btn btn-ghost btn-sm">Financeiro</a>
+        </div>
+        <div class="card-body" id="invoices-preview"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const user = initPage();
+
+// Topbar date
+document.getElementById('topbar-date').textContent =
+  new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
+
+// Notificação bell
+if (user && Auth.isManagerOrAbove()) {
+  const btn = document.getElementById('notif-btn');
+  btn.style.display = '';
+  const pending = Approvals.list.filter(a => a.status === 'pending').length;
+  if (pending === 0) document.getElementById('notif-dot').style.display = 'none';
+}
+
+// Welcome banner
+function renderWelcome() {
+  const hr = new Date().getHours();
+  const greeting = hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite';
+  document.getElementById('welcome-msg').textContent = `${greeting}, ${user.name.split(' ')[0]}!`;
+
+  const pending = Approvals.list.filter(a => a.status === 'pending').length;
+  const won = Deals.list.filter(d => d.column === 'fechado').length;
+
+  if (Auth.isManagerOrAbove()) {
+    document.getElementById('welcome-sub').textContent =
+      pending > 0 ? `Você tem ${pending} solicitaç${pending>1?'ões':'ão'} pendente${pending>1?'s':''} aguardando análise.`
+                  : 'Nenhuma solicitação pendente no momento. Tudo em dia!';
+
+    const statsData = [
+      { val: Customers.list.filter(c=>c.status==='active').length, label: 'Clientes Ativos' },
+      { val: Deals.list.filter(d=>!['fechado','perdido'].includes(d.column)).length, label: 'Neg. Ativos' },
+      { val: pending, label: 'Aprovações' },
+    ];
+    document.getElementById('welcome-stats').innerHTML = statsData.map(s => `
+      <div class="welcome-stat">
+        <div class="welcome-stat-val">${s.val}</div>
+        <div class="welcome-stat-label">${s.label}</div>
+      </div>
+    `).join('');
+  } else {
+    const myDeals = Deals.list.filter(d => d.seller === user.id);
+    const myReq = Approvals.list.filter(a => a.sellerId === user.id && a.status === 'pending').length;
+    document.getElementById('welcome-sub').textContent =
+      `Você tem ${myDeals.filter(d=>!['fechado','perdido'].includes(d.column)).length} negócios ativos no funil.`;
+    document.getElementById('welcome-stats').innerHTML = [
+      { val: myDeals.length, label: 'Meus Negócios' },
+      { val: won, label: 'Fechados Mês' },
+      { val: myReq, label: 'Solicitações' },
+    ].map(s => `<div class="welcome-stat"><div class="welcome-stat-val">${s.val}</div><div class="welcome-stat-label">${s.label}</div></div>`).join('');
+  }
+}
+renderWelcome();
+
+// KPIs
+function renderKPIs() {
+  const active = Customers.list.filter(c => c.status === 'active').length;
+  const mrr = Finance.mrr;
+  const activeDeals = Deals.list.filter(d => !['fechado','perdido'].includes(d.column));
+  const pipeline = activeDeals.reduce((s,d) => s+d.value, 0);
+  const pending = Approvals.list.filter(a => a.status === 'pending').length;
+  const churn = Finance.churn;
+
+  const kpis = Auth.isManagerOrAbove() ? [
+    { icon: 'fa-dollar-sign', color: 'blue',   label: 'MRR',            val: Utils.currency(mrr, true),     delta: '+8.3%', deltaDir: 'up' },
+    { icon: 'fa-users',       color: 'green',  label: 'Clientes Ativos',val: active,                       delta: '+3',    deltaDir: 'up' },
+    { icon: 'fa-filter',      color: 'orange', label: 'Pipeline',       val: Utils.currency(pipeline,true), delta: `${activeDeals.length} neg.`, deltaDir: 'neutral' },
+    { icon: 'fa-clipboard-check', color:'purple',label:'Aprovações Pend.',val: pending,                   delta: pending>2?'Atenção':'Em dia', deltaDir: pending>2?'down':'up' },
+  ] : [
+    { icon: 'fa-filter',  color: 'blue',   label: 'Meu Pipeline',  val: Utils.currency(Deals.list.filter(d=>d.seller===user.id&&!['fechado','perdido'].includes(d.column)).reduce((s,d)=>s+d.value,0),true), delta: `${Deals.list.filter(d=>d.seller===user.id&&!['fechado','perdido'].includes(d.column)).length} neg.`, deltaDir:'neutral' },
+    { icon: 'fa-trophy',  color: 'green',  label: 'Fechados no Mês',val: Deals.list.filter(d=>d.seller===user.id&&d.column==='fechado').length, delta: 'Meta: 5', deltaDir:'neutral' },
+    { icon: 'fa-paper-plane', color:'orange',label:'Solicitações',  val: Approvals.list.filter(a=>a.sellerId===user.id).length, delta: `${Approvals.list.filter(a=>a.sellerId===user.id&&a.status==='pending').length} pend.`, deltaDir:'neutral' },
+    { icon: 'fa-star',    color: 'purple', label: 'NPS',            val: '74',      delta: 'Excelente', deltaDir: 'up' },
+  ];
+
+  document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-top">
+        <div class="kpi-icon ${k.color}"><i class="fa-solid ${k.icon}"></i></div>
+        <span class="kpi-delta ${k.deltaDir}">
+          ${k.deltaDir==='up'?'<i class="fa-solid fa-arrow-up"></i>':k.deltaDir==='down'?'<i class="fa-solid fa-arrow-down"></i>':''}
+          ${k.delta}
+        </span>
+      </div>
+      <div class="kpi-value" data-target="${k.val}">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>
+  `).join('');
+}
+renderKPIs();
+
+// Funil
+function renderFunnel() {
+  const counts = {};
+  Deals.list.forEach(d => { counts[d.column] = (counts[d.column]||0)+1; });
+  const total = Deals.list.length;
+
+  const stages = Deals.columns.filter(c => !['perdido'].includes(c.id));
+  document.getElementById('funnel-card').innerHTML = stages.map(col => {
+    const n = counts[col.id] || 0;
+    const pct = total > 0 ? Math.round(n/total*100) : 0;
+    return `
+      <div class="funnel-stage">
+        <span class="funnel-label">${col.title}</span>
+        <div class="funnel-bar-track">
+          <div class="funnel-bar-fill" style="width:${pct}%;background:${col.color};">
+            ${pct>8?`<span>${n}</span>`:''}
+          </div>
+        </div>
+        <span class="funnel-count">${n}</span>
+      </div>`;
+  }).join('');
+}
+renderFunnel();
+
+// Aprovações
+function renderApprovals() {
+  const list = Auth.isManagerOrAbove()
+    ? Approvals.list.filter(a => a.status === 'pending').slice(0,4)
+    : Approvals.list.filter(a => a.sellerId === user.id).slice(0,4);
+
+  if (list.length === 0) {
+    document.getElementById('approval-list').innerHTML = `
+      <div class="empty-state" style="padding:24px;">
+        <i class="fa-solid fa-check-double"></i>
+        <h3>Tudo em dia!</h3>
+        <p>Nenhuma solicitação pendente.</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('approval-list').innerHTML = list.map(a => {
+    const seller = Utils.getUserById(a.sellerId);
+    return `
+      <div class="pending-row">
+        <div class="avatar avatar-sm" style="background:${seller?.color||'#6366F1'};flex-shrink:0;">${seller?.initials||'?'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.type}</div>
+          <div style="font-size:11.5px;color:var(--text-3);">${seller?.name} · ${Utils.dateStr(a.createdAt)}</div>
+        </div>
+        <span class="badge ${Approvals.statusClass[a.status]}">${Approvals.statusLabel[a.status]}</span>
+      </div>`;
+  }).join('');
+
+  if (!Auth.isManagerOrAbove()) {
+    document.getElementById('approval-card-title').textContent = 'Minhas Solicitações';
+    document.getElementById('approval-link').href = 'solicitacoes.html';
+  }
+}
+renderApprovals();
+
+// Ranking
+function renderRanking() {
+  const sellers = ['u4','u5','u6'].map(id => {
+    const u = Utils.getUserById(id);
+    const deals = Deals.list.filter(d => d.seller === id && d.column === 'fechado');
+    const value = deals.reduce((s,d)=>s+d.value,0);
+    const goal = Goals.current.find(g=>g.seller===id && g.name==='Receita Nova');
+    const pct = goal ? Math.round(goal.current/goal.target*100) : 0;
+    return { user: u, value, deals: deals.length, pct, goal };
+  }).sort((a,b) => b.value - a.value);
+
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('ranking-list').innerHTML = sellers.map((s,i) => `
+    <div class="stat-row">
+      <span style="font-size:18px;">${medals[i]||i+1}</span>
+      <div class="avatar avatar-sm" style="background:${s.user?.color}">${s.user?.initials}</div>
+      <div class="stat-row-info">
+        <div class="stat-row-name">${s.user?.name?.split(' ')[0]}</div>
+        <div class="progress-bar-wrap mt-4">
+          <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${s.pct>=100?'#059669':s.pct>=60?'#2563EB':'#D97706'};width:${Math.min(s.pct,100)}%;"></div></div>
+        </div>
+      </div>
+      <div class="stat-row-val">${s.pct}%</div>
+    </div>
+  `).join('');
+}
+renderRanking();
+
+// Atividades
+function renderActivities() {
+  const actIcons = {
+    deal_won:  { icon:'fa-trophy',    bg:'#D1FAE5', color:'#059669' },
+    approval:  { icon:'fa-check',     bg:'#DBEAFE', color:'#2563EB' },
+    call:      { icon:'fa-phone',     bg:'#F5F3FF', color:'#7C3AED' },
+    proposal:  { icon:'fa-file-alt',  bg:'#FEF3C7', color:'#D97706' },
+    request:   { icon:'fa-paper-plane',bg:'#E0F2FE', color:'#0284C7' },
+    install:   { icon:'fa-wrench',    bg:'#D1FAE5', color:'#059669' },
+    rejection: { icon:'fa-times',     bg:'#FEE2E2', color:'#DC2626' },
+  };
+
+  document.getElementById('activity-list').innerHTML = Activities.slice(0,6).map(a => {
+    const ic = actIcons[a.type] || actIcons.call;
+    const u = Utils.getUserById(a.user);
+    return `
+      <div class="act-row">
+        <div class="act-icon" style="background:${ic.bg};color:${ic.color};">
+          <i class="fa-solid ${ic.icon}"></i>
+        </div>
+        <div class="act-info">
+          <div class="act-text">${a.text}</div>
+          <div class="act-time">${u?.name?.split(' ')[0]} · há ${a.time}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+renderActivities();
+
+// Gráfico MRR (canvas simples)
+let currentChart = 'mrr';
+function switchChart(type, btn) {
+  currentChart = type;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('chart-mrr');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.parentElement.offsetWidth - 40;
+  const h = 160;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const data = Finance.history.map(d => currentChart === 'mrr' ? d.mrr : d.new);
+  const labels = Finance.history.map(d => d.month);
+  const max = Math.max(...data) * 1.15;
+  const pad = { l:50, r:16, t:12, b:28 };
+  const cw = w - pad.l - pad.r;
+  const ch = h - pad.t - pad.b;
+  const step = cw / (data.length - 1);
+
+  // Grid lines
+  ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 1;
+  [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+    const y = pad.t + ch * (1-f);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+cw, y); ctx.stroke();
+    ctx.fillStyle = '#94A3B8'; ctx.font = '10px Inter'; ctx.textAlign = 'right';
+    ctx.fillText(Utils.currency(max*f, true), pad.l - 4, y + 4);
+  });
+
+  // Points
+  const pts = data.map((d,i) => ({ x: pad.l + i*step, y: pad.t + ch * (1 - d/max) }));
+
+  // Area fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+ch);
+  grad.addColorStop(0, 'rgba(37,99,235,.15)');
+  grad.addColorStop(1, 'rgba(37,99,235,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pad.t+ch);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, pad.t+ch);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath(); ctx.strokeStyle = '#2563EB'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+
+  // Dots + labels
+  pts.forEach((p,i) => {
+    ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2);
+    ctx.fillStyle = '#2563EB'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.fillStyle = '#64748B'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+    ctx.fillText(labels[i], p.x, h - 6);
+  });
+}
+setTimeout(drawChart, 100);
+window.addEventListener('resize', Utils.debounce(drawChart, 200));
+
+// Distribuição por produto
+function renderProductDist() {
+  const products = [
+    { label: 'Fibra Residencial', count: Customers.list.filter(c=>['f200','f400','f1g'].includes(c.plan)).length, color:'#1D4ED8', tag:'product-internet' },
+    { label: 'Internet Empresarial', count: Customers.list.filter(c=>['b500','b1g','b10g'].includes(c.plan)).length, color:'#D97706', tag:'product-b2b' },
+    { label: 'Linha Móvel', count: Customers.list.filter(c=>['m15','m40','m100'].includes(c.plan)).length, color:'#059669', tag:'product-mobile' },
+  ];
+  const max = Math.max(...products.map(p=>p.count));
+  document.getElementById('product-dist').innerHTML = products.map(p => `
+    <div class="chart-bar-row">
+      <span class="chart-bar-label">${p.label}</span>
+      <div style="flex:1;height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${max>0?Math.round(p.count/max*100):0}%;background:${p.color};border-radius:4px;transition:width .6s ease;"></div>
+      </div>
+      <span class="chart-bar-val">${p.count}</span>
+    </div>
+  `).join('');
+}
+renderProductDist();
+
+// Vencimentos
+function renderInvoices() {
+  const inv = Finance.invoices.slice(0,5);
+  document.getElementById('invoices-preview').innerHTML = inv.map(inv => {
+    const cls = { paid:'badge-success', open:'badge-blue', overdue:'badge-danger' }[inv.status] || 'badge-neutral';
+    const label = { paid:'Pago', open:'Em aberto', overdue:'Vencido' }[inv.status] || inv.status;
+    return `
+      <div class="pending-row">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${inv.customer}</div>
+          <div style="font-size:11.5px;color:var(--text-3);">${inv.id} · Venc. ${new Date(inv.due).toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:var(--text-1);">${Utils.currency(inv.value)}</div>
+          <span class="badge ${cls}" style="margin-top:2px;">${label}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+renderInvoices();
+</script>
+</body>
+</html>

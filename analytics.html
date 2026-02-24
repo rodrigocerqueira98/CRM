@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análise de Vendas — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .risk-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .risk-row:last-child { border-bottom:none; }
+    .opp-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .opp-row:last-child { border-bottom:none; }
+    .conversion-box { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:14px 16px; text-align:center; }
+    .conversion-pct { font-size:28px; font-weight:800; font-family:var(--font-mono); }
+    .conversion-label { font-size:12px; color:var(--text-3); margin-top:3px; }
+    .perf-table-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+    .perf-table-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Análise de Vendas</div>
+    <div class="topbar-actions">
+      <select class="filter-select" id="period-filter">
+        <option>Fevereiro 2025</option>
+        <option>Janeiro 2025</option>
+        <option>Último Trimestre</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="Utils.toast('Relatório gerado!','success')">
+        <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <!-- KPIs -->
+    <div class="kpi-grid mb-24" id="kpi-grid"></div>
+
+    <!-- Linha 1 -->
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Receita por Produto</span></div>
+        <div class="card-body">
+          <canvas id="chart-product" height="200"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Taxa de Conversão por Estágio</span></div>
+        <div class="card-body" id="conversion-grid"></div>
+      </div>
+    </div>
+
+    <!-- Linha 2 -->
+    <div class="grid-2 mb-24">
+      <!-- Top oportunidades -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top Oportunidades <span>em negociação</span></span>
+        </div>
+        <div class="card-body" id="top-opp"></div>
+      </div>
+
+      <!-- Performance por vendedor -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Performance por Vendedor</span>
+          <span class="badge badge-blue">Mês atual</span>
+        </div>
+        <div class="card-body" id="seller-perf"></div>
+      </div>
+    </div>
+
+    <!-- Linha 3 -->
+    <div class="grid-2">
+      <!-- Negócios em risco -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Negócios em Risco</span>
+          <span class="badge badge-warning">Atenção</span>
+        </div>
+        <div class="card-body" id="risk-deals"></div>
+      </div>
+
+      <!-- Distribuição por segmento -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Base por Segmento</span></div>
+        <div class="card-body">
+          <canvas id="chart-segment" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const user = initPage();
+
+// KPIs
+document.getElementById('kpi-grid').innerHTML = [
+  { icon:'fa-dollar-sign', color:'blue',   label:'Receita Fechada (Mês)',val: Utils.currency(Deals.list.filter(d=>d.column==='fechado').reduce((s,d)=>s+d.value,0),true), delta:'+22%', dir:'up' },
+  { icon:'fa-percent',     color:'green',  label:'Taxa de Conversão',   val: '31%',  delta:'+5pp', dir:'up' },
+  { icon:'fa-clock',       color:'orange', label:'Tempo Médio de Ciclo',val: '18d',  delta: '-3d', dir:'up' },
+  { icon:'fa-users-slash', color:'red',    label:'Churn Rate',          val: Finance.churn+'%', delta: '-0.3pp', dir:'up' },
+].map(k=>`
+  <div class="kpi-card ${k.color}">
+    <div class="kpi-top">
+      <div class="kpi-icon ${k.color}"><i class="fa-solid ${k.icon}"></i></div>
+      <span class="kpi-delta ${k.dir}"><i class="fa-solid fa-arrow-${k.dir==='up'?'up':'down'}"></i> ${k.delta}</span>
+    </div>
+    <div class="kpi-value">${k.val}</div>
+    <div class="kpi-label">${k.label}</div>
+  </div>
+`).join('');
+
+// Gráfico de receita por produto (barras horizontais via canvas)
+function drawProductChart() {
+  const canvas = document.getElementById('chart-product');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.parentElement.offsetWidth - 40;
+  const h = 200;
+  const dpr = window.devicePixelRatio||1;
+  canvas.width=w*dpr; canvas.height=h*dpr;
+  canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  ctx.scale(dpr,dpr);
+
+  const products = [
+    { label:'Fibra Residencial', value: 58000, color:'#2563EB' },
+    { label:'Internet Empresarial', value: 97000, color:'#D97706' },
+    { label:'Linha Móvel', value: 21000, color:'#059669' },
+    { label:'Datacenter 10G', value: 113000, color:'#7C3AED' },
+  ];
+  const max = Math.max(...products.map(p=>p.value)) * 1.1;
+  const barH = 26, gap = 16;
+  const padL = 150, padR = 80, padT = 10;
+
+  products.forEach((p, i) => {
+    const y = padT + i*(barH+gap);
+    const bw = (p.value/max) * (w - padL - padR);
+
+    // Bg track
+    ctx.fillStyle = '#F1F5F9';
+    ctx.beginPath();
+    ctx.roundRect(padL, y, w-padL-padR, barH, 4);
+    ctx.fill();
+
+    // Bar
+    const grad = ctx.createLinearGradient(padL,0,padL+bw,0);
+    grad.addColorStop(0, p.color);
+    grad.addColorStop(1, p.color+'88');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(padL, y, bw, barH, 4);
+    ctx.fill();
+
+    // Label esquerda
+    ctx.fillStyle = '#334155';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'right';
+    ctx.fillText(p.label, padL-8, y+barH/2+4);
+
+    // Valor direita
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '600 12px Inter';
+    ctx.textAlign = 'left';
+    ctx.fillText(Utils.currency(p.value,true), padL+bw+8, y+barH/2+4);
+  });
+}
+setTimeout(drawProductChart, 80);
+
+// Conversão por estágio
+function renderConversion() {
+  const stages = [
+    { from:'Lead', to:'Qualificado', rate: 62 },
+    { from:'Qualificado', to:'Proposta', rate: 55 },
+    { from:'Proposta', to:'Negociação', rate: 48 },
+    { from:'Negociação', to:'Fechado', rate: 71 },
+  ];
+  document.getElementById('conversion-grid').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      ${stages.map(s=>`
+        <div class="conversion-box">
+          <div class="conversion-pct" style="color:${s.rate>=60?'var(--success)':s.rate>=40?'var(--blue-600)':'var(--warning)'};">${s.rate}%</div>
+          <div class="conversion-label">${s.from} → ${s.to}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--r-md);padding:12px;font-size:12.5px;color:var(--blue-700);">
+      <i class="fa-solid fa-lightbulb"></i>
+      <strong>Insight:</strong> A conversão de Proposta→Negociação (48%) está abaixo da média de mercado (55%). Considere revisar o script de proposta.
+    </div>
+  `;
+}
+renderConversion();
+
+// Top oportunidades
+document.getElementById('top-opp').innerHTML = Deals.list
+  .filter(d=>!['fechado','perdido'].includes(d.column))
+  .sort((a,b)=>b.value-a.value)
+  .slice(0,5)
+  .map(d=>{
+    const seller = Utils.getUserById(d.seller);
+    const col = Deals.columns.find(c=>c.id===d.column);
+    return `
+      <div class="opp-row">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${d.title}</div>
+          <div style="font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px;margin-top:2px;">
+            <div class="avatar avatar-sm" style="background:${seller?.color};font-size:9px;">${seller?.initials}</div>
+            ${seller?.name?.split(' ')[0]} · <span style="color:${col?.color};font-weight:600;">${col?.title}</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--success);font-family:var(--font-mono);">${Utils.currency(d.value,true)}</div>
+          <div style="font-size:11px;color:var(--text-3);">${d.prob}% prob.</div>
+        </div>
+      </div>`;
+  }).join('');
+
+// Performance por vendedor
+document.getElementById('seller-perf').innerHTML = ['u4','u5','u6'].map(id=>{
+  const s = Utils.getUserById(id);
+  const closed = Deals.list.filter(d=>d.seller===id&&d.column==='fechado');
+  const pipeline = Deals.list.filter(d=>d.seller===id&&!['fechado','perdido'].includes(d.column));
+  const goal = Goals.current.find(g=>g.seller===id&&g.name==='Receita Nova');
+  const pct = goal ? Math.min(Math.round(goal.current/goal.target*100),100) : 0;
+  return `
+    <div class="perf-table-row">
+      <div class="avatar avatar-md" style="background:${s?.color}">${s?.initials}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;">${s?.name}</div>
+        <div class="progress-bar-wrap mt-4">
+          <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct>=100?'var(--success)':pct>=60?'var(--blue-500)':'var(--warning)'};width:${pct}%;"></div></div>
+          <span class="progress-val">${pct}%</span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:12px;color:var(--success);font-weight:700;">${closed.length} fechados</div>
+        <div style="font-size:11px;color:var(--text-3);">${pipeline.length} em prog.</div>
+      </div>
+    </div>`;
+}).join('');
+
+// Negócios em risco
+const risks = [
+  { deal: Deals.list.find(d=>d.id==='d02'), reason: 'Sem contato há 7 dias', urgency: 'high' },
+  { deal: Deals.list.find(d=>d.id==='d08'), reason: 'Proposta sem resposta — 12 dias', urgency: 'high' },
+  { deal: Deals.list.find(d=>d.id==='d09'), reason: 'Probabilidade baixa (40%)', urgency: 'medium' },
+];
+document.getElementById('risk-deals').innerHTML = risks.filter(r=>r.deal).map(r=>{
+  const seller = Utils.getUserById(r.deal.seller);
+  const urgColor = r.urgency==='high'?'var(--danger)':'var(--warning)';
+  return `
+    <div class="risk-row">
+      <div style="width:8px;height:8px;border-radius:50%;background:${urgColor};flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.deal.title}</div>
+        <div style="font-size:11.5px;color:var(--text-3);">${r.reason}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:12.5px;font-weight:700;font-family:var(--font-mono);color:var(--text-1);">${Utils.currency(r.deal.value,true)}</div>
+        <div class="avatar avatar-sm" style="background:${seller?.color};margin-left:auto;margin-top:3px;">${seller?.initials}</div>
+      </div>
+    </div>`;
+}).join('');
+
+// Gráfico de segmento (pizza via canvas)
+function drawSegmentChart() {
+  const canvas = document.getElementById('chart-segment');
+  const ctx = canvas.getContext('2d');
+  const size = Math.min(canvas.parentElement.offsetWidth - 40, 200);
+  const dpr = window.devicePixelRatio||1;
+  canvas.width=size*dpr; canvas.height=size*dpr;
+  canvas.style.width=size+'px'; canvas.style.height=size+'px';
+  ctx.scale(dpr,dpr);
+
+  const segs = [
+    { label:'Enterprise', count: Customers.list.filter(c=>c.segment==='enterprise').length, color:'#2563EB' },
+    { label:'PME',        count: Customers.list.filter(c=>c.segment==='pme').length, color:'#D97706' },
+    { label:'Residencial',count: Customers.list.filter(c=>c.segment==='residencial').length, color:'#059669' },
+  ];
+  const total = segs.reduce((s,x)=>s+x.count,0);
+  const cx=size/2, cy=size/2, r=size/2-20;
+  let angle = -Math.PI/2;
+
+  segs.forEach(seg => {
+    const slice = (seg.count/total) * Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,angle,angle+slice);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+
+    // Label
+    const mid = angle+slice/2;
+    const lx = cx + Math.cos(mid)*(r*0.65);
+    const ly = cy + Math.sin(mid)*(r*0.65);
+    ctx.fillStyle='#fff'; ctx.font='bold 12px Inter'; ctx.textAlign='center';
+    ctx.fillText(seg.count, lx, ly+4);
+    angle += slice;
+  });
+
+  // Centro branco
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.45,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.fillStyle='#0F172A'; ctx.font='bold 16px Inter'; ctx.textAlign='center';
+  ctx.fillText(total, cx, cy+5);
+  ctx.fillStyle='#94A3B8'; ctx.font='11px Inter';
+  ctx.fillText('total', cx, cy+19);
+}
+setTimeout(drawSegmentChart, 80);
+window.addEventListener('resize', Utils.debounce(() => { drawProductChart(); drawSegmentChart(); }, 200));
+</script>
+</body>
+</html>

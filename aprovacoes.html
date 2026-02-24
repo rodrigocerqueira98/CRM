@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aprovações — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .approval-grid { display:flex; flex-direction:column; gap:12px; }
+    .apr-detail-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px; }
+    .apr-detail-box { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:12px 14px; }
+    .apr-detail-label { font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+    .apr-detail-val { font-size:14px; font-weight:700; color:var(--text-1); }
+    .apr-detail-sub { font-size:11.5px; color:var(--text-3); margin-top:2px; }
+    .action-textarea { width:100%; min-height:80px; resize:vertical; }
+    .priority-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
+    .priority-high   .priority-dot { background: #DC2626; }
+    .priority-medium .priority-dot { background: #D97706; }
+    .priority-low    .priority-dot { background: #059669; }
+    .header-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+    .hstat { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:14px 16px; box-shadow:var(--shadow-xs); }
+    .hstat-val { font-size:22px; font-weight:800; font-family:var(--font-mono); }
+    .hstat-label { font-size:12px; color:var(--text-3); margin-top:2px; }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Central de Aprovações <span id="pending-count"></span></div>
+    <div class="topbar-actions">
+      <button class="btn btn-outline btn-sm" onclick="filterStatus('')" id="filter-all">
+        <i class="fa-solid fa-list"></i> Todas
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="filterStatus('pending')" id="filter-pending">
+        <i class="fa-solid fa-clock"></i> Pendentes
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="Utils.toast('Relatório exportado com sucesso!','success')">
+        <i class="fa-solid fa-download"></i> Exportar
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Stats de aprovações -->
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--warning);" id="hs-pending">0</div>
+        <div class="hstat-label">Aguardando Análise</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--success);" id="hs-approved">0</div>
+        <div class="hstat-label">Aprovadas (Mês)</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--danger);" id="hs-rejected">0</div>
+        <div class="hstat-label">Recusadas (Mês)</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--blue-600);" id="hs-review">0</div>
+        <div class="hstat-label">Em Análise</div>
+      </div>
+    </div>
+
+    <!-- Tabs por tipo -->
+    <div class="flex items-center justify-between mb-16">
+      <div class="tabs" id="cat-tabs">
+        <button class="tab-btn active" data-cat="">Todas as Categorias</button>
+        <button class="tab-btn" data-cat="discount">Desconto</button>
+        <button class="tab-btn" data-cat="custom_plan">Plano Custom</button>
+        <button class="tab-btn" data-cat="fee_waiver">Taxa/Multa</button>
+        <button class="tab-btn" data-cat="credit">Crédito</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label style="font-size:12.5px;color:var(--text-3);">Ordenar:</label>
+        <select class="filter-select" id="sort-sel" onchange="renderList()">
+          <option value="date-desc">Mais recentes</option>
+          <option value="date-asc">Mais antigas</option>
+          <option value="priority">Por prioridade</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Lista de solicitações -->
+    <div class="approval-grid" id="approval-list"></div>
+    <div id="empty-state" class="empty-state hidden">
+      <i class="fa-solid fa-check-double"></i>
+      <h3>Nenhuma solicitação encontrada</h3>
+      <p>Não há solicitações com os filtros selecionados.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal de aprovação -->
+<div class="modal-overlay" id="modal-approve">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">Analisar Solicitação</span>
+      <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-warning btn-sm" id="btn-review" onclick="takeAction('review')">
+        <i class="fa-solid fa-search"></i> Solicitar Mais Info
+      </button>
+      <button class="btn btn-danger" id="btn-reject" onclick="takeAction('rejected')">
+        <i class="fa-solid fa-times"></i> Recusar
+      </button>
+      <button class="btn btn-success" id="btn-approve" onclick="takeAction('approved')">
+        <i class="fa-solid fa-check"></i> Aprovar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const user = initPage();
+let filterSt = '';
+let filterCat = '';
+let currentAprId = null;
+
+// Stats
+function renderStats() {
+  document.getElementById('hs-pending').textContent = Approvals.list.filter(a=>a.status==='pending').length;
+  document.getElementById('hs-approved').textContent = Approvals.list.filter(a=>a.status==='approved').length;
+  document.getElementById('hs-rejected').textContent = Approvals.list.filter(a=>a.status==='rejected').length;
+  document.getElementById('hs-review').textContent = Approvals.list.filter(a=>a.status==='review').length;
+  const pend = Approvals.list.filter(a=>a.status==='pending').length;
+  document.getElementById('pending-count').textContent = pend > 0 ? `· ${pend} pendentes` : '';
+}
+
+// Filtros
+function filterStatus(st) {
+  filterSt = st;
+  document.getElementById('filter-all').className    = 'btn btn-sm ' + (st===''?'btn-primary':'btn-outline');
+  document.getElementById('filter-pending').className = 'btn btn-sm ' + (st==='pending'?'btn-primary':'btn-outline');
+  renderList();
+}
+
+document.querySelectorAll('[data-cat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterCat = btn.dataset.cat;
+    document.querySelectorAll('[data-cat]').forEach(b => b.classList.toggle('active', b===btn));
+    renderList();
+  });
+});
+
+function renderList() {
+  let list = [...Approvals.list];
+  if (filterSt) list = list.filter(a => a.status === filterSt);
+  if (filterCat) list = list.filter(a => a.category === filterCat);
+
+  const sort = document.getElementById('sort-sel').value;
+  if (sort === 'date-desc') list.sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+  if (sort === 'date-asc') list.sort((a,b) => a.createdAt.localeCompare(b.createdAt));
+  if (sort === 'priority') {
+    const ord = { high:0, medium:1, low:2 };
+    list.sort((a,b) => (ord[a.priority]||3)-(ord[b.priority]||3));
+  }
+
+  const container = document.getElementById('approval-list');
+  const empty = document.getElementById('empty-state');
+
+  if (list.length === 0) {
+    container.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  container.innerHTML = list.map(a => {
+    const seller = Utils.getUserById(a.sellerId);
+    const approver = a.approvedBy ? Utils.getUserById(a.approvedBy) : null;
+    const canAct = Auth.isManagerOrAbove() && a.status === 'pending';
+    const priColor = { high:'#DC2626', medium:'#D97706', low:'#059669' }[a.priority] || '#94A3B8';
+
+    return `
+      <div class="approval-card ${a.status}" data-id="${a.id}">
+        <div class="approval-head">
+          <div>
+            <div class="approval-type">
+              <span class="priority-dot" style="background:${priColor};"></span>
+              ${a.type}
+              <span class="badge badge-neutral" style="font-size:10px;margin-left:4px;">${Approvals.categoryLabel[a.category]}</span>
+            </div>
+            <div class="approval-meta">
+              <span><i class="fa-solid fa-user"></i> ${seller?.name}</span>
+              <span><i class="fa-solid fa-calendar"></i> ${Utils.dateStr(a.createdAt)}</span>
+              ${a.customerId ? `<span><i class="fa-solid fa-building"></i> ${Utils.customerName(a.customerId)}</span>` : ''}
+            </div>
+          </div>
+          <span class="badge ${Approvals.statusClass[a.status]}">${Approvals.statusLabel[a.status]}</span>
+        </div>
+        <div class="approval-body">${a.description}</div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
+            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Plano</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-1);">${Utils.planName(a.planId)}</div>
+          </div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
+            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Valor Solicitado</div>
+            <div style="font-size:13px;font-weight:700;color:var(--success);font-family:var(--font-mono);">${a.requestedValue > 0 ? Utils.currency(a.requestedValue)+'/mês' : 'Isenção'}</div>
+          </div>
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
+            <div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Impacto Mensal</div>
+            <div style="font-size:13px;font-weight:700;color:var(--danger);font-family:var(--font-mono);">
+              ${a.discountPct > 0 ? `-${Utils.currency(a.originalValue - a.requestedValue)}/mês` : `${Utils.currency(a.requestedValue)}`}
+            </div>
+          </div>
+        </div>
+
+        ${a.approverComment ? `
+          <div class="approval-comment">
+            <i class="fa-solid fa-quote-left" style="margin-right:5px;font-size:10px;"></i>
+            ${a.approverComment}
+            ${approver ? ` — <strong>${approver.name}</strong>` : ''}
+          </div>
+        ` : ''}
+
+        <div class="approval-actions">
+          <button class="btn btn-outline btn-sm" onclick="openModal('${a.id}')">
+            <i class="fa-solid fa-eye"></i> Ver Detalhes
+          </button>
+          ${canAct ? `
+            <button class="btn btn-success btn-sm" onclick="quickApprove('${a.id}')">
+              <i class="fa-solid fa-check"></i> Aprovar
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="openModal('${a.id}','reject')">
+              <i class="fa-solid fa-times"></i> Recusar
+            </button>
+          ` : ''}
+          <span style="margin-left:auto;font-size:11px;color:var(--text-4);">
+            Prioridade: <strong style="color:${priColor}">${{high:'Alta',medium:'Média',low:'Baixa'}[a.priority]}</strong>
+          </span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function quickApprove(id) {
+  const a = Approvals.list.find(x => x.id === id);
+  if (!a) return;
+  a.status = 'approved';
+  a.approvedBy = user.id;
+  a.approverComment = 'Aprovado diretamente pelo gestor.';
+  a.updatedAt = new Date().toISOString();
+  renderList(); renderStats();
+  Utils.toast('Solicitação aprovada com sucesso!', 'success');
+}
+
+function openModal(id, mode='view') {
+  currentAprId = id;
+  const a = Approvals.list.find(x => x.id === id);
+  if (!a) return;
+  const seller = Utils.getUserById(a.sellerId);
+
+  document.getElementById('modal-title').textContent = `Solicitação: ${a.type}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="flex items-center gap-8 mb-16">
+      <div class="avatar avatar-md" style="background:${seller?.color}">${seller?.initials}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;">${seller?.name}</div>
+        <div style="font-size:12px;color:var(--text-3);">${Auth.roleLabels[seller?.role]} · ${Utils.dateStr(a.createdAt)}</div>
+      </div>
+      <span class="badge ${Approvals.statusClass[a.status]}" style="margin-left:auto;">${Approvals.statusLabel[a.status]}</span>
+    </div>
+
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Descrição da Solicitação</div>
+      <p style="font-size:13.5px;color:var(--text-1);line-height:1.6;">${a.description}</p>
+    </div>
+
+    <div class="apr-detail-row">
+      <div class="apr-detail-box">
+        <div class="apr-detail-label">Cliente</div>
+        <div class="apr-detail-val">${Utils.customerName(a.customerId)}</div>
+        <div class="apr-detail-sub">${Approvals.categoryLabel[a.category]}</div>
+      </div>
+      <div class="apr-detail-box">
+        <div class="apr-detail-label">Plano</div>
+        <div class="apr-detail-val">${Utils.planName(a.planId)}</div>
+        <div class="apr-detail-sub">Original: ${Utils.currency(a.originalValue)}/mês</div>
+      </div>
+      <div class="apr-detail-box">
+        <div class="apr-detail-label">Impacto Financeiro</div>
+        <div class="apr-detail-val" style="color:var(--danger);">
+          ${a.discountPct > 0 ? `-${a.discountPct}% / mês` : `${Utils.currency(a.requestedValue)}`}
+        </div>
+        <div class="apr-detail-sub">${a.duration > 0 ? `Por ${a.duration} meses` : 'Permanente'}</div>
+      </div>
+    </div>
+
+    ${a.status !== 'pending' && a.approverComment ? `
+      <div class="approval-comment mb-16">
+        <strong>Comentário:</strong> ${a.approverComment}
+      </div>
+    ` : ''}
+
+    ${a.status === 'pending' || a.status === 'review' ? `
+      <div class="form-group">
+        <label class="form-label">Comentário / Justificativa <span style="font-weight:400;color:var(--text-3);">(recomendado)</span></label>
+        <textarea class="form-control action-textarea" id="modal-comment" placeholder="Descreva o motivo da decisão, condições especiais ou solicite informações adicionais..."></textarea>
+      </div>
+    ` : ''}
+  `;
+
+  const canAct = Auth.isManagerOrAbove() && (a.status === 'pending' || a.status === 'review');
+  document.getElementById('btn-approve').style.display = canAct ? '' : 'none';
+  document.getElementById('btn-reject').style.display  = canAct ? '' : 'none';
+  document.getElementById('btn-review').style.display  = (canAct && a.status === 'pending') ? '' : 'none';
+
+  Utils.modal('modal-approve').open();
+  if (mode === 'reject') setTimeout(() => document.getElementById('modal-comment')?.focus(), 300);
+}
+
+function closeModal() { Utils.modal('modal-approve').close(); }
+
+function takeAction(action) {
+  const a = Approvals.list.find(x => x.id === currentAprId);
+  if (!a) return;
+  const comment = document.getElementById('modal-comment')?.value.trim();
+  a.status = action;
+  a.approvedBy = user.id;
+  a.approverComment = comment || (action==='approved' ? 'Aprovado pelo gestor.' : action==='rejected' ? 'Recusado pelo gestor.' : 'Aguardando mais informações.');
+  a.updatedAt = new Date().toISOString();
+  closeModal();
+  renderList(); renderStats();
+  const msgs = { approved:'Solicitação aprovada!', rejected:'Solicitação recusada.', review:'Aguardando informações adicionais.' };
+  const types = { approved:'success', rejected:'error', review:'warning' };
+  Utils.toast(msgs[action], types[action]);
+}
+
+// Init
+renderStats();
+renderList();
+</script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novo Cliente — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .form-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); margin-bottom:20px; overflow:hidden; }
+    .form-section-header { padding:14px 20px; background:var(--surface-2); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+    .form-section-header i { color:var(--blue-600); font-size:14px; }
+    .form-section-title { font-size:14px; font-weight:700; color:var(--text-1); }
+    .form-section-body { padding:20px; }
+    .cnpj-lookup { display:flex; gap:8px; }
+    .cnpj-lookup input { flex:1; }
+    .plan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .plan-opt { border:1.5px solid var(--border); border-radius:var(--r-md); padding:12px; cursor:pointer; transition:var(--t); }
+    .plan-opt:hover { border-color:var(--blue-400,#60A5FA); }
+    .plan-opt.selected { border-color:var(--blue-600); background:var(--blue-50); }
+    .plan-opt-name { font-size:13px; font-weight:700; color:var(--text-1); }
+    .plan-opt-price { font-size:12px; color:var(--success); font-weight:600; font-family:var(--font-mono); margin-top:2px; }
+    .plan-opt-type { font-size:10.5px; color:var(--text-3); margin-top:2px; }
+    .step-indicator { display:flex; align-items:center; gap:0; margin-bottom:24px; }
+    .step { display:flex; align-items:center; gap:8px; }
+    .step-dot { width:28px; height:28px; border-radius:50%; border:2px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--text-3); flex-shrink:0; }
+    .step.active .step-dot { border-color:var(--blue-600); background:var(--blue-600); color:#fff; }
+    .step.done .step-dot { border-color:var(--success); background:var(--success); color:#fff; }
+    .step-label { font-size:12.5px; font-weight:600; color:var(--text-3); }
+    .step.active .step-label { color:var(--blue-700); }
+    .step.done .step-label { color:var(--success); }
+    .step-line { flex:1; height:2px; background:var(--border); margin:0 8px; }
+    .step-line.done { background:var(--success); }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Cadastrar Novo Cliente</div>
+    <div class="topbar-actions">
+      <a href="clientes.html" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-arrow-left"></i> Voltar à Lista
+      </a>
+    </div>
+  </header>
+
+  <div class="page-content" style="max-width:860px;">
+
+    <!-- Steps -->
+    <div class="step-indicator">
+      <div class="step active" id="step1">
+        <div class="step-dot">1</div>
+        <div class="step-label">Identificação</div>
+      </div>
+      <div class="step-line" id="line12"></div>
+      <div class="step" id="step2">
+        <div class="step-dot">2</div>
+        <div class="step-label">Endereço</div>
+      </div>
+      <div class="step-line" id="line23"></div>
+      <div class="step" id="step3">
+        <div class="step-dot">3</div>
+        <div class="step-label">Plano</div>
+      </div>
+      <div class="step-line" id="line34"></div>
+      <div class="step" id="step4">
+        <div class="step-dot">4</div>
+        <div class="step-label">Confirmação</div>
+      </div>
+    </div>
+
+    <!-- 1. Identificação -->
+    <div class="form-section" id="sec-ident">
+      <div class="form-section-header">
+        <i class="fa-solid fa-id-card"></i>
+        <span class="form-section-title">1. Identificação do Cliente</span>
+      </div>
+      <div class="form-section-body">
+        <div class="form-row mb-16">
+          <div class="form-group">
+            <label class="form-label">Tipo de Pessoa</label>
+            <div style="display:flex;gap:8px;">
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:var(--t);" id="lbl-pj" onclick="setType('pj')">
+                <input type="radio" name="type" value="pj" id="radio-pj" checked style="accent-color:var(--blue-600);">
+                <div><div style="font-size:13px;font-weight:600;">Pessoa Jurídica (CNPJ)</div><div style="font-size:11.5px;color:var(--text-3);">Empresas, MEI, etc.</div></div>
+              </label>
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:var(--t);" id="lbl-pf" onclick="setType('pf')">
+                <input type="radio" name="type" value="pf" id="radio-pf" style="accent-color:var(--blue-600);">
+                <div><div style="font-size:13px;font-weight:600;">Pessoa Física (CPF)</div><div style="font-size:11.5px;color:var(--text-3);">Residencial</div></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="doc-section-pj" class="form-row cols-2 mb-16">
+          <div class="form-group">
+            <label class="form-label">CNPJ <span class="req">*</span></label>
+            <div class="cnpj-lookup">
+              <input class="form-control" id="cnpj-input" placeholder="00.000.000/0001-00" maxlength="18" oninput="formatCNPJ(this)">
+              <button class="btn btn-outline" onclick="lookupCNPJ()" id="btn-cnpj">
+                <i class="fa-solid fa-search"></i> Consultar
+              </button>
+            </div>
+            <div class="form-hint">Consulta automática na Receita Federal</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nome Fantasia</label>
+            <input class="form-control" id="fantasia-input" placeholder="Preenchido automaticamente">
+          </div>
+        </div>
+
+        <div id="doc-section-pf" class="form-row cols-2 mb-16 hidden">
+          <div class="form-group">
+            <label class="form-label">CPF <span class="req">*</span></label>
+            <input class="form-control" id="cpf-input" placeholder="000.000.000-00" maxlength="14" oninput="formatCPF(this)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth-input">
+          </div>
+        </div>
+
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Razão Social / Nome Completo <span class="req">*</span></label>
+            <input class="form-control" id="name-input" placeholder="Nome completo ou razão social">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Segmento</label>
+            <select class="form-control" id="segment-input">
+              <option value="residencial">Residencial</option>
+              <option value="pme">PME (Pequena/Média Empresa)</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row cols-2 mt-16">
+          <div class="form-group">
+            <label class="form-label">Telefone Principal <span class="req">*</span></label>
+            <input class="form-control" id="phone-input" placeholder="(00) 00000-0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail <span class="req">*</span></label>
+            <input type="email" class="form-control" id="email-input" placeholder="contato@empresa.com.br">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Endereço -->
+    <div class="form-section">
+      <div class="form-section-header">
+        <i class="fa-solid fa-map-marker-alt"></i>
+        <span class="form-section-title">2. Endereço de Instalação</span>
+      </div>
+      <div class="form-section-body">
+        <div class="form-row cols-3">
+          <div class="form-group">
+            <label class="form-label">CEP <span class="req">*</span></label>
+            <div class="input-with-icon">
+              <i class="fa-solid fa-search input-icon"></i>
+              <input class="form-control" id="cep-input" placeholder="00000-000" maxlength="9" oninput="formatCEP(this);lookupCEP(this)">
+            </div>
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">Logradouro</label>
+            <input class="form-control" id="street-input" placeholder="Rua, Avenida, etc.">
+          </div>
+        </div>
+        <div class="form-row cols-3 mt-16">
+          <div class="form-group">
+            <label class="form-label">Número</label>
+            <input class="form-control" id="number-input" placeholder="Nº">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Complemento</label>
+            <input class="form-control" id="comp-input" placeholder="Apto, Sala...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bairro</label>
+            <input class="form-control" id="neighborhood-input" placeholder="Bairro">
+          </div>
+        </div>
+        <div class="form-row cols-2 mt-16">
+          <div class="form-group">
+            <label class="form-label">Cidade</label>
+            <input class="form-control" id="city-input" placeholder="Cidade">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estado</label>
+            <select class="form-control" id="state-input">
+              <option value="">UF</option>
+              <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option>
+              <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+              <option>MG</option><option>MS</option><option>MT</option><option>PA</option><option>PB</option>
+              <option>PE</option><option>PI</option><option>PR</option><option>RJ</option><option>RN</option>
+              <option>RO</option><option>RR</option><option>RS</option><option>SC</option><option>SE</option>
+              <option selected>SP</option><option>TO</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Plano -->
+    <div class="form-section">
+      <div class="form-section-header">
+        <i class="fa-solid fa-wifi"></i>
+        <span class="form-section-title">3. Plano Contratado</span>
+      </div>
+      <div class="form-section-body">
+        <div style="display:flex;gap:6px;margin-bottom:14px;" id="plan-category-tabs">
+          <button class="btn btn-primary btn-sm" onclick="switchPlanCat('fiber',this)" id="tab-fiber">Fibra</button>
+          <button class="btn btn-outline btn-sm" onclick="switchPlanCat('mobile',this)" id="tab-mobile">Linha Móvel</button>
+          <button class="btn btn-outline btn-sm" onclick="switchPlanCat('b2b',this)" id="tab-b2b">Empresarial B2B</button>
+        </div>
+        <div class="plan-grid" id="plan-grid"></div>
+        <div class="form-row cols-2 mt-16">
+          <div class="form-group">
+            <label class="form-label">Vendedor Responsável</label>
+            <select class="form-control" id="seller-input"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data de Ativação</label>
+            <input type="date" class="form-control" id="activation-input">
+          </div>
+        </div>
+        <div class="form-group mt-16">
+          <label class="form-label">Observações</label>
+          <textarea class="form-control" id="obs-input" rows="2" placeholder="Informações adicionais, restrições de acesso, etc."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botões -->
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px;">
+      <a href="clientes.html" class="btn btn-ghost">Cancelar</a>
+      <button class="btn btn-outline" onclick="saveAndAnother()">
+        <i class="fa-solid fa-plus"></i> Salvar e Novo
+      </button>
+      <button class="btn btn-primary" onclick="saveClient()">
+        <i class="fa-solid fa-check"></i> Cadastrar Cliente
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const user = initPage();
+let selectedPlan = null;
+let clientType = 'pj';
+let currentPlanCat = 'fiber';
+
+// Preenche sellers
+document.getElementById('seller-input').innerHTML =
+  Auth.users.filter(u=>u.role==='vendedor').map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+
+// Data de ativação padrão = hoje
+document.getElementById('activation-input').value = new Date().toISOString().split('T')[0];
+
+// Tipo de pessoa
+function setType(type) {
+  clientType = type;
+  document.getElementById('doc-section-pj').classList.toggle('hidden', type==='pf');
+  document.getElementById('doc-section-pf').classList.toggle('hidden', type==='pj');
+  document.getElementById('lbl-pj').style.borderColor = type==='pj'?'var(--blue-600)':'var(--border)';
+  document.getElementById('lbl-pf').style.borderColor = type==='pf'?'var(--blue-600)':'var(--border)';
+}
+setType('pj');
+
+// Formatações
+function formatCNPJ(inp) {
+  let v = inp.value.replace(/\D/g,'');
+  v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+  v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+  v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+  v = v.replace(/(\d{4})(\d)/, '$1-$2');
+  inp.value = v;
+}
+function formatCPF(inp) {
+  let v = inp.value.replace(/\D/g,'');
+  v = v.replace(/(\d{3})(\d)/, '$1.$2');
+  v = v.replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
+  v = v.replace(/\.(\d{3})(\d)/, '.$1-$2');
+  inp.value = v;
+}
+function formatCEP(inp) {
+  let v = inp.value.replace(/\D/g,'');
+  if (v.length > 5) v = v.slice(0,5)+'-'+v.slice(5,8);
+  inp.value = v;
+}
+
+// Consulta CNPJ (BrasilAPI)
+async function lookupCNPJ() {
+  const cnpj = document.getElementById('cnpj-input').value.replace(/\D/g,'');
+  if (cnpj.length !== 14) { Utils.toast('CNPJ deve ter 14 dígitos','error'); return; }
+  const btn = document.getElementById('btn-cnpj');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    if (!r.ok) throw new Error('CNPJ não encontrado');
+    const d = await r.json();
+    document.getElementById('name-input').value = d.razao_social || '';
+    document.getElementById('fantasia-input').value = d.nome_fantasia || '';
+    document.getElementById('street-input').value = `${d.descricao_tipo_de_logradouro||''} ${d.logradouro||''}`.trim();
+    document.getElementById('number-input').value = d.numero || '';
+    document.getElementById('comp-input').value = d.complemento || '';
+    document.getElementById('neighborhood-input').value = d.bairro || '';
+    document.getElementById('city-input').value = d.municipio || '';
+    document.getElementById('state-input').value = d.uf || 'SP';
+    const rawCep = (d.cep||'').replace(/\D/g,'');
+    document.getElementById('cep-input').value = rawCep.length===8 ? rawCep.slice(0,5)+'-'+rawCep.slice(5) : rawCep;
+    Utils.toast('Dados preenchidos com sucesso!', 'success');
+  } catch(e) {
+    Utils.toast('CNPJ não encontrado na Receita Federal', 'error');
+  } finally {
+    btn.innerHTML = '<i class="fa-solid fa-search"></i> Consultar';
+    btn.disabled = false;
+  }
+}
+
+// Busca CEP
+async function lookupCEP(inp) {
+  const cep = inp.value.replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const d = await r.json();
+    if (d.erro) return;
+    document.getElementById('street-input').value = d.logradouro || '';
+    document.getElementById('neighborhood-input').value = d.bairro || '';
+    document.getElementById('city-input').value = d.localidade || '';
+    document.getElementById('state-input').value = d.uf || 'SP';
+    Utils.toast('Endereço preenchido!', 'success');
+  } catch(e) { /* silencioso */ }
+}
+
+// Planos
+function switchPlanCat(cat, btn) {
+  currentPlanCat = cat;
+  document.querySelectorAll('#plan-category-tabs .btn').forEach(b=>{
+    b.className = b===btn ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+  });
+  renderPlans();
+}
+
+function renderPlans() {
+  const plansData = Plans[currentPlanCat] || [];
+  document.getElementById('plan-grid').innerHTML = plansData.map(p=>`
+    <div class="plan-opt ${selectedPlan===p.id?'selected':''}" onclick="selectPlan('${p.id}')">
+      <div class="plan-opt-name">${p.name}</div>
+      <div style="font-size:22px;font-weight:800;color:var(--text-1);font-family:var(--font-mono);margin:4px 0;">${p.speed}<span style="font-size:13px;font-weight:400;color:var(--text-3);"> ${currentPlanCat==='fiber'||currentPlanCat==='b2b'?'Mbps':'GB'}</span></div>
+      <div class="plan-opt-price">${Utils.currency(p.price)}<span style="font-size:11px;font-weight:400;color:var(--text-3);">/mês</span></div>
+      <div class="plan-opt-type">
+        <div class="plan-features mt-8">
+          ${p.features.map(f=>`<div class="plan-feature"><i class="fa-solid fa-check"></i> ${f}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectPlan(id) {
+  selectedPlan = id;
+  renderPlans();
+}
+
+renderPlans();
+
+// Salvar
+function saveClient() {
+  const name = document.getElementById('name-input').value.trim();
+  const phone = document.getElementById('phone-input').value.trim();
+  const email = document.getElementById('email-input').value.trim();
+  if (!name || !phone || !email) { Utils.toast('Preencha os campos obrigatórios','error'); return; }
+  if (!selectedPlan) { Utils.toast('Selecione um plano','error'); return; }
+
+  const allPlans = [...Plans.fiber, ...Plans.mobile, ...Plans.b2b];
+  const plan = allPlans.find(p=>p.id===selectedPlan);
+  const doc = clientType==='pj' ? document.getElementById('cnpj-input').value : document.getElementById('cpf-input').value;
+
+  const newClient = {
+    id: 'cli' + Date.now(),
+    type: clientType,
+    name,
+    doc,
+    plan: selectedPlan,
+    status: 'pending',
+    mrr: plan?.price || 0,
+    since: new Date().toISOString().split('T')[0],
+    seller: document.getElementById('seller-input').value,
+    address: `${document.getElementById('street-input').value}, ${document.getElementById('number-input').value} — ${document.getElementById('city-input').value}`,
+    phone,
+    email,
+    segment: document.getElementById('segment-input').value,
+  };
+
+  Customers.list.push(newClient);
+  Utils.toast(`Cliente ${name} cadastrado com sucesso!`, 'success', 3000);
+  setTimeout(() => { window.location.href = 'clientes.html'; }, 1500);
+}
+
+function saveAndAnother() {
+  saveClient();
+}
+</script>
+</body>
+</html>

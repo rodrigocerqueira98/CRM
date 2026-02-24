@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minhas Solicitações — Conecta CRM</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .req-list { display:flex; flex-direction:column; gap:12px; }
+    .new-req-banner {
+      background: linear-gradient(135deg, #1E3A8A, #2563EB);
+      color: #fff; border-radius: var(--r-lg);
+      padding: 20px 24px; margin-bottom: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .req-type-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+    .req-type-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md); padding: 14px;
+      cursor: pointer; transition: var(--t); text-align: center;
+    }
+    .req-type-card:hover { border-color: var(--blue-500); background: var(--blue-50); }
+    .req-type-card.selected { border-color: var(--blue-600); background: var(--blue-50); }
+    .req-type-card i { font-size: 22px; margin-bottom: 6px; display: block; }
+    .req-type-card .tc-name { font-size: 12.5px; font-weight: 700; color: var(--text-1); }
+    .req-type-card .tc-desc { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .slider-wrap { margin-top: 6px; }
+    .slider-wrap input[type=range] { width: 100%; accent-color: var(--blue-600); }
+    .discount-preview {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: 14px 16px; margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+<script src="js/app.js"></script>
+<script src="js/sidebar.js"></script>
+
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">Minhas Solicitações</div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="Utils.modal('modal-new-req').open()">
+        <i class="fa-solid fa-plus"></i> Nova Solicitação
+      </button>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <div class="new-req-banner">
+      <div>
+        <h3 style="font-size:16px;font-weight:700;margin-bottom:4px;">Central de Solicitações</h3>
+        <p style="font-size:13px;opacity:.8;">Submeta pedidos de desconto, migração, crédito e condições especiais para aprovação do gestor.</p>
+      </div>
+      <button class="btn btn-outline" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff;" onclick="Utils.modal('modal-new-req').open()">
+        <i class="fa-solid fa-plus"></i> Nova Solicitação
+      </button>
+    </div>
+
+    <!-- Stats da linha -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div class="card" style="padding:16px;">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Total Enviadas</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);" id="stat-total">0</div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Aprovadas</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);color:var(--success);" id="stat-approved">0</div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Pendentes</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);color:var(--warning);" id="stat-pending">0</div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Taxa Aprovação</div>
+        <div style="font-size:22px;font-weight:800;font-family:var(--font-mono);color:var(--blue-600);" id="stat-rate">0%</div>
+      </div>
+    </div>
+
+    <!-- Filtro -->
+    <div class="filter-bar card mb-16" style="border-radius:var(--r-lg);">
+      <span style="font-size:12.5px;font-weight:600;color:var(--text-3);">Filtrar por status:</span>
+      <select class="filter-select" id="status-filter" onchange="renderMyList()">
+        <option value="">Todas</option>
+        <option value="pending">Aguardando</option>
+        <option value="approved">Aprovado</option>
+        <option value="rejected">Recusado</option>
+        <option value="review">Em análise</option>
+      </select>
+      <select class="filter-select" id="cat-filter" onchange="renderMyList()">
+        <option value="">Todas as categorias</option>
+        <option value="discount">Desconto</option>
+        <option value="custom_plan">Plano Customizado</option>
+        <option value="fee_waiver">Isenção de Taxa</option>
+        <option value="migration">Migração sem Multa</option>
+        <option value="credit">Crédito de Serviço</option>
+      </select>
+    </div>
+
+    <div class="req-list" id="my-requests"></div>
+    <div id="empty-req" class="empty-state hidden">
+      <i class="fa-solid fa-paper-plane"></i>
+      <h3>Nenhuma solicitação</h3>
+      <p>Você ainda não enviou nenhuma solicitação. Clique em "Nova Solicitação" para começar.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal Nova Solicitação -->
+<div class="modal-overlay" id="modal-new-req">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">Nova Solicitação de Aprovação</span>
+      <button class="modal-close" onclick="Utils.modal('modal-new-req').close()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Tipos de solicitação -->
+      <div style="margin-bottom:18px;">
+        <label class="form-label" style="margin-bottom:8px;display:block;">Tipo de Solicitação</label>
+        <div class="req-type-grid" id="type-grid">
+          <div class="req-type-card selected" data-type="discount" data-label="Desconto Especial">
+            <i class="fa-solid fa-percent" style="color:#D97706;"></i>
+            <div class="tc-name">Desconto Especial</div>
+            <div class="tc-desc">Redução de % no plano</div>
+          </div>
+          <div class="req-type-card" data-type="fee_waiver" data-label="Isenção de Taxa">
+            <i class="fa-solid fa-ban" style="color:#DC2626;"></i>
+            <div class="tc-name">Isenção de Taxa</div>
+            <div class="tc-desc">Instalação, multa, etc.</div>
+          </div>
+          <div class="req-type-card" data-type="migration" data-label="Migração sem Multa">
+            <i class="fa-solid fa-arrow-right-arrow-left" style="color:#7C3AED;"></i>
+            <div class="tc-name">Migração sem Multa</div>
+            <div class="tc-desc">Troca de plano antecipada</div>
+          </div>
+          <div class="req-type-card" data-type="custom_plan" data-label="Plano Customizado">
+            <i class="fa-solid fa-sliders" style="color:#2563EB;"></i>
+            <div class="tc-name">Plano Customizado</div>
+            <div class="tc-desc">Condições especiais B2B</div>
+          </div>
+          <div class="req-type-card" data-type="credit" data-label="Crédito de Serviço">
+            <i class="fa-solid fa-coins" style="color:#059669;"></i>
+            <div class="tc-name">Crédito de Serviço</div>
+            <div class="tc-desc">Compensação SLA/falha</div>
+          </div>
+          <div class="req-type-card" data-type="contract" data-label="Condição Contratual">
+            <i class="fa-solid fa-file-signature" style="color:#EA580C;"></i>
+            <div class="tc-name">Condição Contratual</div>
+            <div class="tc-desc">Fidelidade, prazos, etc.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Cliente <span class="req">*</span></label>
+          <select class="form-control" id="req-customer">
+            <option value="">Selecionar cliente...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Plano Envolvido</label>
+          <select class="form-control" id="req-plan">
+            <option value="">Selecionar plano...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row cols-2">
+        <div class="form-group">
+          <label class="form-label">Prioridade</label>
+          <select class="form-control" id="req-priority">
+            <option value="low">Baixa</option>
+            <option value="medium" selected>Média</option>
+            <option value="high">Alta</option>
+          </select>
+        </div>
+        <div class="form-group" id="discount-pct-group">
+          <label class="form-label">Desconto: <strong id="discount-label">10%</strong></label>
+          <div class="slider-wrap">
+            <input type="range" id="req-discount" min="5" max="40" step="5" value="10" oninput="updateDiscount()">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-4);margin-top:2px;">
+              <span>5%</span><span>40%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="discount-preview" id="discount-preview">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div>
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px;">Valor Original</div>
+            <div style="font-size:15px;font-weight:700;font-family:var(--font-mono);color:var(--text-1);" id="prev-original">R$ --</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px;">Valor Solicitado</div>
+            <div style="font-size:15px;font-weight:700;font-family:var(--font-mono);color:var(--success);" id="prev-new">R$ --</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px;">Impacto Mensal</div>
+            <div style="font-size:15px;font-weight:700;font-family:var(--font-mono);color:var(--danger);" id="prev-diff">-R$ --</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group mt-12">
+        <label class="form-label">Justificativa / Contexto <span class="req">*</span></label>
+        <textarea class="form-control" id="req-desc" rows="4" placeholder="Descreva o motivo da solicitação, histórico do cliente, proposta da concorrência, urgência..."></textarea>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Utils.modal('modal-new-req').close()">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitRequest()">
+        <i class="fa-solid fa-paper-plane"></i> Enviar Solicitação
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const user = initPage();
+let selectedType = 'discount';
+let selectedTypeLabel = 'Desconto Especial';
+
+// Preenche selects
+function populateSelects() {
+  const custSel = document.getElementById('req-customer');
+  custSel.innerHTML = '<option value="">Selecionar cliente...</option>' +
+    Customers.list.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  const planSel = document.getElementById('req-plan');
+  const allPlans = [...Plans.fiber, ...Plans.mobile, ...Plans.b2b];
+  planSel.innerHTML = '<option value="">Selecionar plano...</option>' +
+    allPlans.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} — ${Utils.currency(p.price)}/mês</option>`).join('');
+}
+populateSelects();
+
+// Tipo de solicitação
+document.querySelectorAll('.req-type-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.req-type-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedType = card.dataset.type;
+    selectedTypeLabel = card.dataset.label;
+    const showDiscount = selectedType === 'discount';
+    document.getElementById('discount-pct-group').style.display = showDiscount ? '' : 'none';
+    document.getElementById('discount-preview').style.display = showDiscount ? '' : 'none';
+  });
+});
+
+function updateDiscount() {
+  const pct = parseInt(document.getElementById('req-discount').value);
+  document.getElementById('discount-label').textContent = pct + '%';
+  const planSel = document.getElementById('req-plan');
+  const opt = planSel.options[planSel.selectedIndex];
+  const price = parseFloat(opt?.dataset.price) || 0;
+  if (price > 0) {
+    const newPrice = price * (1 - pct/100);
+    document.getElementById('prev-original').textContent = Utils.currency(price);
+    document.getElementById('prev-new').textContent = Utils.currency(newPrice);
+    document.getElementById('prev-diff').textContent = '-' + Utils.currency(price - newPrice);
+  }
+}
+
+document.getElementById('req-plan').addEventListener('change', updateDiscount);
+
+function submitRequest() {
+  const custId = document.getElementById('req-customer').value;
+  const planId = document.getElementById('req-plan').value;
+  const desc = document.getElementById('req-desc').value.trim();
+
+  if (!custId) { Utils.toast('Selecione um cliente', 'error'); return; }
+  if (!desc) { Utils.toast('Preencha a justificativa', 'error'); return; }
+
+  const planSel = document.getElementById('req-plan');
+  const opt = planSel.options[planSel.selectedIndex];
+  const originalValue = parseFloat(opt?.dataset.price) || 0;
+  const pct = parseInt(document.getElementById('req-discount').value);
+  const newValue = selectedType === 'discount' ? originalValue * (1 - pct/100) : originalValue;
+
+  const newReq = {
+    id: 'apr' + Date.now(),
+    type: selectedTypeLabel,
+    status: 'pending',
+    sellerId: user.id,
+    customerId: custId,
+    dealId: null,
+    description: desc,
+    requestedValue: newValue,
+    originalValue: originalValue,
+    planId: planId || 'f400',
+    discountPct: selectedType === 'discount' ? pct : 0,
+    duration: 12,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    approvedBy: null,
+    approverComment: null,
+    priority: document.getElementById('req-priority').value,
+    category: selectedType,
+  };
+
+  Approvals.list.unshift(newReq);
+  Utils.modal('modal-new-req').close();
+  renderStats(); renderMyList();
+  Utils.toast('Solicitação enviada! O gestor foi notificado.', 'success');
+}
+
+function renderStats() {
+  const mine = Approvals.list.filter(a => a.sellerId === user.id);
+  document.getElementById('stat-total').textContent = mine.length;
+  document.getElementById('stat-approved').textContent = mine.filter(a=>a.status==='approved').length;
+  document.getElementById('stat-pending').textContent = mine.filter(a=>a.status==='pending').length;
+  const resolved = mine.filter(a => ['approved','rejected'].includes(a.status));
+  const rate = resolved.length ? Math.round(mine.filter(a=>a.status==='approved').length / resolved.length * 100) : 0;
+  document.getElementById('stat-rate').textContent = rate + '%';
+}
+
+function renderMyList() {
+  const filterSt = document.getElementById('status-filter').value;
+  const filterCat = document.getElementById('cat-filter').value;
+  let list = Approvals.list.filter(a => a.sellerId === user.id);
+  if (filterSt) list = list.filter(a => a.status === filterSt);
+  if (filterCat) list = list.filter(a => a.category === filterCat);
+
+  const container = document.getElementById('my-requests');
+  const empty = document.getElementById('empty-req');
+
+  if (list.length === 0) {
+    container.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  container.innerHTML = list.map(a => {
+    const priColor = { high:'#DC2626', medium:'#D97706', low:'#059669' }[a.priority] || '#94A3B8';
+    return `
+      <div class="approval-card ${a.status}">
+        <div class="approval-head">
+          <div>
+            <div class="approval-type">
+              <span class="priority-dot" style="background:${priColor};display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;"></span>
+              ${a.type}
+            </div>
+            <div class="approval-meta">
+              <span><i class="fa-solid fa-building"></i> ${Utils.customerName(a.customerId)}</span>
+              <span><i class="fa-solid fa-calendar"></i> ${Utils.dateStr(a.createdAt)}</span>
+              <span><i class="fa-solid fa-tag"></i> ${Approvals.categoryLabel[a.category]}</span>
+            </div>
+          </div>
+          <span class="badge ${Approvals.statusClass[a.status]}">${Approvals.statusLabel[a.status]}</span>
+        </div>
+        <div class="approval-body">${a.description}</div>
+        ${a.approverComment ? `
+          <div class="approval-comment">
+            <i class="fa-solid fa-reply" style="margin-right:5px;font-size:10px;"></i>
+            <strong>Resposta do gestor:</strong> ${a.approverComment}
+          </div>
+        ` : ''}
+        <div class="approval-actions">
+          <span style="font-size:12px;color:var(--text-3);">Plano: <strong>${Utils.planName(a.planId)}</strong></span>
+          ${a.requestedValue > 0 ? `<span style="font-size:12px;color:var(--success);font-family:var(--font-mono);font-weight:700;">${Utils.currency(a.requestedValue)}/mês</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+renderStats();
+renderMyList();
+</script>
+</body>
+</html>
