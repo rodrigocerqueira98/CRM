@@ -22,7 +22,12 @@
     .hstat { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); padding:14px 16px; box-shadow:var(--shadow-xs); }
     .hstat-val { font-size:22px; font-weight:800; font-family:var(--font-mono); }
     .hstat-label { font-size:12px; color:var(--text-3); margin-top:2px; }
-  </style>
+  
+    @media (max-width: 768px) {
+      .header-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .apr-detail-row { grid-template-columns: 1fr; }
+    }
+    </style>
 </head>
 <body>
 <script src="js/app.js"></script>
