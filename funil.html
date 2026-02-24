@@ -11,7 +11,8 @@
     .pipeline-topbar { padding: 16px 0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid var(--border); margin-bottom:16px; }
     .pipeline-meta { font-size:13px; color:var(--text-3); }
     .pipeline-meta strong { color:var(--text-1); }
-    .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; }
+    .kanban-board { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; padding-left:4px; }
+    .kanban-col-wrap { scroll-snap-align: start; }
     .kanban-col-wrap { flex-shrink:0; width:270px; display:flex; flex-direction:column; }
     .col-header-stripe { height:3px; border-radius:3px 3px 0 0; }
     .col-header { background:var(--surface); border:1px solid var(--border); border-top:none; padding:10px 14px; display:flex; align-items:center; gap:8px; }
