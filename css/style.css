@@ -895,3 +895,199 @@ canvas { max-width: 100%; }
 .level-gestor   { background: var(--blue-100); color: var(--blue-800); }
 .level-supervisor { background: var(--purple-bg); color: var(--purple); }
 .level-vendedor { background: var(--success-100); color: #064E3B; }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVO — Conecta CRM
+   Breakpoints: sm=640 md=768 lg=1024 xl=1280
+   ══════════════════════════════════════════════════════════ */
+
+/* ── HAMBURGER BUTTON ───────────────────────────────────── */
+.sidebar-toggle {
+  display: none;
+  width: 38px; height: 38px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  align-items: center; justify-content: center;
+  font-size: 16px; color: var(--text-2);
+  cursor: pointer; flex-shrink: 0;
+  transition: var(--t);
+}
+.sidebar-toggle:hover { background: var(--hover); color: var(--text-1); }
+
+/* Overlay escuro atrás do sidebar mobile */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 199;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+}
+.sidebar-backdrop.show { display: block; }
+
+/* ── TABLET (max 1024px) ────────────────────────────────── */
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .grid-4   { grid-template-columns: repeat(2, 1fr); }
+  .grid-3   { grid-template-columns: 1fr 1fr; }
+  .grid-dash        { grid-template-columns: 1fr; }
+  .grid-dash-wide   { grid-template-columns: 1fr; }
+  .settings-layout  { grid-template-columns: 180px 1fr; }
+}
+
+/* ── MOBILE (max 768px) ─────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Sidebar vira drawer lateral */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    z-index: 300;
+    box-shadow: var(--shadow-xl);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Main começa do topo */
+  .main-wrap { margin-left: 0; }
+
+  /* Topbar */
+  .sidebar-toggle { display: flex; }
+  .topbar { padding: 0 14px; gap: 10px; }
+  .topbar-title { font-size: 14px; }
+  .topbar-title span { display: none; }
+  .topbar-search { display: none; }
+  .topbar-search.visible { display: block; }
+  .topbar-btn { width: 32px; height: 32px; font-size: 13px; }
+
+  /* Page content */
+  .page-content { padding: 14px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header-right { width: 100%; flex-wrap: wrap; }
+  .page-header-right .btn { flex: 1; justify-content: center; min-width: 120px; }
+
+  /* KPI grid */
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .kpi-value { font-size: 20px; }
+
+  /* Grids */
+  .grid-2, .grid-3, .grid-4,
+  .grid-auto, .grid-dash, .grid-dash-wide { grid-template-columns: 1fr; }
+
+  /* Welcome banner */
+  .welcome-banner { flex-direction: column; gap: 14px; padding: 16px; }
+  .welcome-stats { justify-content: space-around; width: 100%; }
+  .welcome-text h2 { font-size: 16px; }
+
+  /* Tabs scroll horizontal */
+  .tabs { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+  .tab-btn { white-space: nowrap; font-size: 12px; padding: 6px 12px; }
+
+  /* Filtros */
+  .filter-bar { flex-wrap: wrap; padding: 10px 12px; gap: 6px; }
+  .filter-select { font-size: 12px; }
+
+  /* Tabelas */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--r-md); }
+  table { min-width: 600px; }
+  thead th { font-size: 10px; padding: 9px 10px; }
+  tbody td { padding: 11px 10px; font-size: 12.5px; }
+
+  /* Cards */
+  .card-header { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+  .card-body { padding: 14px; }
+
+  /* Kanban */
+  .kanban-board, .kanban-wrap { gap: 10px; }
+  .kanban-col-wrap { min-width: 240px; width: 240px; }
+
+  /* Modais */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    max-height: 92vh;
+    max-width: 100%;
+    width: 100%;
+  }
+  .modal-lg, .modal-sm { max-width: 100%; }
+  .modal-header { padding: 16px 16px 12px; }
+  .modal-body { padding: 16px; }
+  .modal-footer { padding: 12px 16px; flex-wrap: wrap; }
+  .modal-footer .btn { flex: 1; justify-content: center; }
+
+  /* Forms */
+  .form-row.cols-2,
+  .form-row.cols-3 { grid-template-columns: 1fr; }
+  .apr-detail-row  { grid-template-columns: 1fr; }
+
+  /* Login */
+  .login-page { flex-direction: column; }
+  .login-left { min-height: 200px; padding: 28px 24px; flex: none; }
+  .login-left .login-features { display: none; }
+  .login-branding p { display: none; }
+  .login-branding h1 { font-size: 22px; }
+  .login-right { width: 100%; padding: 28px 20px; flex: 1; }
+  .login-form-wrap { max-width: 100%; }
+
+  /* Metas */
+  .seller-panel-body { padding: 12px 14px; }
+  .commission-box { padding: 10px 12px; }
+  .commission-val { font-size: 17px; }
+
+  /* Settings */
+  .settings-layout { grid-template-columns: 1fr; }
+  .settings-nav { flex-direction: row; overflow-x: auto; padding-bottom: 4px; gap: 4px; }
+  .settings-nav-item { white-space: nowrap; border-radius: var(--r-full); padding: 7px 14px; }
+
+  /* Approval cards */
+  .approval-card { padding: 14px; }
+  .approval-actions { flex-wrap: wrap; gap: 6px; }
+  .approval-actions .btn { flex: 1; min-width: 100px; justify-content: center; }
+  .req-type-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Role selector */
+  .role-selector { grid-template-columns: 1fr 1fr; }
+
+  /* Plan cards */
+  .client-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* ── MOBILE PEQUENO (max 480px) ─────────────────────────── */
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; gap: 8px; }
+  .kpi-card { padding: 14px; }
+  .kpi-value { font-size: 22px; }
+
+  .topbar { height: 52px; }
+  .page-content { padding: 10px; }
+
+  .welcome-banner { padding: 14px; }
+  .welcome-stats { gap: 12px; }
+  .welcome-stat-val { font-size: 18px; }
+
+  .req-type-grid { grid-template-columns: 1fr; }
+  .role-selector { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── TOPBAR SEARCH MOBILE EXPANDÍVEL ───────────────────── */
+.search-toggle {
+  display: none;
+  width: 34px; height: 34px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-3);
+  cursor: pointer;
+  transition: var(--t);
+}
+@media (max-width: 768px) {
+  .search-toggle { display: flex; }
+}
+
+/* ── UTILITÁRIOS RESPONSIVOS ────────────────────────────── */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: flex !important; }
+}
+@media (min-width: 769px) {
+  .show-mobile { display: none !important; }
+}
