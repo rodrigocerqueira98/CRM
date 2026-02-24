@@ -16,7 +16,11 @@
     .conversion-label { font-size:12px; color:var(--text-3); margin-top:3px; }
     .perf-table-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
     .perf-table-row:last-child { border-bottom: none; }
-  </style>
+  
+    @media (max-width: 768px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+    </style>
 </head>
 <body>
 <script src="js/app.js"></script>
